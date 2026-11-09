@@ -176,7 +176,7 @@ document.addEventListener('selectionchange', () => { if (document.activeElement 
 term.addEventListener('click', () => input.focus());
 
 // Phones get a tap-to-play launcher instead of the terminal (add ?phone to the address to try it on a computer).
-const PHONE = /[?&]phone/.test(location.search) || !!window.Capacitor ||
+const PHONE = /[?&]phone\b/.test(location.search) || !!window.Capacitor ||
   (matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820);
 // Offline support for the home-screen version. Not for file:// (not allowed) or the Android app (already offline).
 if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !window.Capacitor) navigator.serviceWorker.register('sw.js').catch(() => {});
