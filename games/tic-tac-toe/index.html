@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Tic-Tac-Toe</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <h1><span class="x">TIC</span>-TAC-<span class="o">TOE</span></h1>
+
+  <section id="menu">
+    <div class="dim">get three in a row</div>
+    <div class="options">
+      <button class="opt" data-mode="2p"><kbd>1</kbd><span>2 PLAYERS<small>take turns on one keyboard</small></span></button>
+      <button class="opt" data-mode="botX"><kbd>2</kbd><span>VS BOT · you are X<small>you go first</small></span></button>
+      <button class="opt" data-mode="botO"><kbd>3</kbd><span>VS BOT · you are O<small>the bot goes first</small></span></button>
+    </div>
+    <div class="dim help" id="menuhelp">1 / 2 / 3 or click to pick</div>
+  </section>
+
+  <section id="game" class="hidden">
+    <div id="status"></div>
+    <div id="board"></div>
+    <div id="score">
+      <div class="sx"><b id="sx">0</b><span id="lx">X</span></div>
+      <div class="dim"><b id="sd">0</b>DRAW</div>
+      <div class="so"><b id="so">0</b><span id="lo">O</span></div>
+    </div>
+    <div id="botinfo" class="dim"></div>
+    <div class="dim help">1-9 or click a square · arrows + ENTER · R new round · ESC menu</div>
+  </section>
+</main>
+<script src="bot.js"></script>
+<script src="tictactoe.js"></script>
+</body>
+</html>

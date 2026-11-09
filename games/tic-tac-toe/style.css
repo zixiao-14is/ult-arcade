@@ -1,0 +1,50 @@
+:root {
+  --bg: #000; --text: #e6e6e6; --dim: #7a7a7a; --line: #2a2a2a;
+  --x: #7fd7ff; --o: #ff9ad5; --ok: #9fe89f; --gold: #ffd76a;
+  --cell: min(26vw, 22vh, 150px);
+}
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); overflow: hidden; }
+body {
+  font: 16px/1.45 Consolas, "Cascadia Mono", Menlo, "DejaVu Sans Mono", monospace;
+  display: flex; align-items: center; justify-content: center; user-select: none;
+}
+main { width: 100%; max-width: 560px; padding: 16px; box-sizing: border-box; text-align: center; }
+h1 { margin: 0 0 4px; font-size: clamp(30px, 8vw, 48px); letter-spacing: 2px; }
+h1 .x { color: var(--x); } h1 .o { color: var(--o); }
+.dim { color: var(--dim); }
+.hidden { display: none !important; }
+
+/* menu */
+#menu .options { display: grid; gap: 12px; margin: 28px auto 20px; max-width: 360px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.opt {
+  background: transparent; border: 1px solid var(--line); padding: 14px 16px; text-align: left;
+  display: flex; gap: 14px; align-items: center; transition: border-color .12s, background .12s;
+}
+.opt:hover, .opt:focus-visible { border-color: var(--ok); background: rgba(159, 232, 159, .06); outline: none; }
+.opt kbd { color: var(--gold); font-weight: bold; }
+.opt small { display: block; color: var(--dim); }
+
+/* game */
+#status { min-height: 1.6em; margin: 14px 0 12px; font-size: 20px; font-weight: bold; }
+#board {
+  display: grid; grid-template-columns: repeat(3, var(--cell)); grid-template-rows: repeat(3, var(--cell));
+  gap: 6px; justify-content: center; background: var(--line); width: max-content; margin: 0 auto; padding: 0;
+}
+.cell {
+  background: var(--bg); border: 0; position: relative; padding: 0;
+  font-size: calc(var(--cell) * .62); font-weight: bold; line-height: 1;
+}
+.cell .n { position: absolute; top: 6px; left: 8px; font-size: 12px; color: #333; font-weight: normal; }
+.cell.X { color: var(--x); text-shadow: 0 0 14px var(--x); }
+.cell.O { color: var(--o); text-shadow: 0 0 14px var(--o); }
+.cell.cursor { box-shadow: inset 0 0 0 2px var(--gold); }
+.cell.win { background: #10220f; animation: pop .5s ease-out; }
+.cell:disabled { cursor: default; }
+@keyframes pop { 0% { transform: scale(.8); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
+
+#score { display: flex; justify-content: center; gap: 28px; margin: 18px 0 6px; font-size: 15px; }
+#score b { font-size: 22px; display: block; }
+#score .sx { color: var(--x); } #score .so { color: var(--o); }
+#botinfo { min-height: 1.4em; font-size: 12px; }
+.help { font-size: 13px; margin-top: 10px; }

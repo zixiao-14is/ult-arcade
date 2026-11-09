@@ -1,0 +1,25 @@
+# Only the games and the app's source go to GitHub. Everything here can be rebuilt or downloaded again.
+
+# Android SDK, Java and Gradle that build-apk.js downloads (gigabytes)
+.tools/
+
+# Claude Code's local preview settings
+.claude/
+
+# app/: npm packages, the generated copy of the games, the built APK (it goes on the Releases page instead), logs
+app/node_modules/
+app/www/
+app/dist/
+app/build.log
+*.log
+
+# Android build output and machine-specific settings (app/android/.gitignore covers the rest)
+app/android/.gradle/
+app/android/build/
+app/android/app/build/
+app/android/local.properties
+app/android/capacitor-cordova-android-plugins/build/
+
+# signing keys, if you ever make one for the Play Store: never upload these
+*.jks
+*.keystore

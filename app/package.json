@@ -1,0 +1,18 @@
+{
+  "name": "ult-arcade",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Packages the games in the folder above as a phone app with Capacitor.",
+  "scripts": {
+    "www": "node scripts/build-www.js",
+    "sync": "node scripts/build-www.js && cap sync android",
+    "apk": "node scripts/build-www.js && cap sync android && node scripts/make-icons.js && node scripts/build-apk.js"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/core": "^8.6.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.0"
+  }
+}

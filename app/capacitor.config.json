@@ -1,0 +1,9 @@
+{
+  "appId": "com.ultgames.arcade",
+  "appName": "ULT Arcade",
+  "webDir": "www",
+  "backgroundColor": "#0b0b1a",
+  "plugins": {
+    "SystemBars": { "hidden": true, "insetsHandling": "native" }
+  }
+}

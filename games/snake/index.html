@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Snake</title>
+<style>html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }</style>
+</head>
+<body>
+<script src="snake.js"></script>
+<script>
+  // Esc on the menu: hand control back to the terminal, or reopen the menu when played on its own.
+  function exit() {
+    if (window.parent !== window) window.parent.postMessage('exit-game', '*');
+    else Snake.open(exit);
+  }
+  Snake.open(exit);
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ULT Arcade</string>
+    <string name="title_activity_main">ULT Arcade</string>
+    <string name="package_name">com.ultgames.arcade</string>
+    <string name="custom_url_scheme">com.ultgames.arcade</string>
+</resources>
