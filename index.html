@@ -27,6 +27,21 @@
   #hidden { position: absolute; left: -9999px; opacity: 0; }
   #game { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: none; background: #000; }
 </style>
+<!-- iPad/iPhone: holding a finger down must never select the page (the blue highlight) or open the copy menu.
+     Safari only obeys the -webkit- versions of these. Text boxes stay selectable so typing still works. -->
+<style>
+  * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  input, textarea { -webkit-user-select: text; user-select: text; }
+</style>
+<script>
+  (function () {
+    const inTextBox = e => { const el = e.target && e.target.nodeType === 1 ? e.target : e.target && e.target.parentElement; return !!(el && el.closest && el.closest('input, textarea')); };
+    document.addEventListener('selectstart', e => { if (!inTextBox(e)) e.preventDefault(); });
+    document.addEventListener('contextmenu', e => { if (!inTextBox(e)) e.preventDefault(); });
+    // games draw on a canvas and read pointer events, which still arrive; this only stops Safari's own hold and zoom gestures
+    document.addEventListener('touchstart', e => { if (e.target.tagName === 'CANVAS') e.preventDefault(); }, { passive: false });
+  })();
+</script>
 </head>
 <body>
 <div id="term"><div id="out"></div><div id="prompt"><span id="ps">user@pulse:~$ </span><span id="typed"></span></div></div>
