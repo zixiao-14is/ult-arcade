@@ -108,17 +108,27 @@ const PulseRunner = (() => {
   // ---------- input ----------
   let held = false, pressed = false;
   function press() { if (!held) pressed = true; held = true; Music.init(); }
-  function release() { held = false; }
+  function release() { if (!botPlaying()) held = false; }   // while the bot plays, the button is its
   const JUMP_KEYS = [' ', 'ArrowUp', 'w', 'W'];
   const COLS = 3;
   addEventListener('keydown', e => {
     if (!active) return;
     if (e.key === 'Escape') { e.preventDefault(); return onEscape(); }
-    if (JUMP_KEYS.includes(e.key)) { e.preventDefault(); if (!e.repeat) { press(); onAction(); } }
+    if (scene === 'play' && (e.key === 'p' || e.key === 'P')) return togglePause();
+    if (paused) {   // looking around the level: arrows scroll (Shift = faster), Home / End jump to the start / finish
+      const k = e.key, by = e.shiftKey ? 60 : 12;
+      if (k === 'ArrowLeft') viewX -= by;
+      if (k === 'ArrowRight') viewX += by;
+      if (k === 'Home') viewX = -10;
+      if (k === 'End') viewX = lv.end;
+      clampView(); e.preventDefault(); return;
+    }
+    if (JUMP_KEYS.includes(e.key)) { e.preventDefault(); if (!e.repeat) { if (!botPlaying()) press(); onAction(); } }
     if (scene === 'menu') {
       const n = LEVELS.length;
       if (e.key >= '1' && e.key <= String(n)) startLevel(+e.key - 1);
       if (e.key === 'p' || e.key === 'P') practice = !practice;
+      if (e.key === 'b' || e.key === 'B') bot = !bot;
       if (e.key === 'ArrowLeft') sel = (sel + n - 1) % n;
       if (e.key === 'ArrowRight') sel = (sel + 1) % n;
       if (e.key === 'ArrowDown') sel = Math.min(n - 1, sel + COLS);
@@ -127,8 +137,14 @@ const PulseRunner = (() => {
     }
   });
   addEventListener('keyup', e => { if (active && JUMP_KEYS.includes(e.key)) release(); });
-  cv.addEventListener('pointerdown', e => { press(); onAction(); onPointer(e.clientX, e.clientY); });
-  addEventListener('pointerup', release);
+  cv.addEventListener('pointerdown', e => {
+    if (paused) { drag = { x: e.clientX, v: viewX }; return; }   // paused: drag to look through the level
+    if (!botPlaying()) press();
+    onAction(); onPointer(e.clientX, e.clientY);
+  });
+  cv.addEventListener('pointermove', e => { if (drag) { viewX = drag.v - (e.clientX - drag.x) / T; clampView(); } });
+  cv.addEventListener('wheel', e => { if (paused) { e.preventDefault(); viewX += (e.deltaY + e.deltaX) / T; clampView(); } }, { passive: false });
+  addEventListener('pointerup', () => { drag = null; release(); });
   addEventListener('pointercancel', release);
   addEventListener('blur', release);
 
@@ -136,17 +152,33 @@ const PulseRunner = (() => {
   let scene = 'menu', sel = 0, practice = false;
   let lv, s, attempts = 0, deadTimer = 0, checkpoints = [], cpTimer = 0, rot = 0;
   let particles = [], trail = [], winTimer = 0, flash = 0;
+  // P pauses a run; while paused you can drag (or scroll, or use the arrow keys) to look through the whole level
+  let paused = false, viewX = 0, drag = null;
+  // the bot replays a solved run from bot.js (made by make-bot.js); it always starts from the beginning
+  let bot = false, botTick = 0, botNext = 0, botWon = false;
+  const botPlan = () => (typeof PulseBot !== 'undefined' && lv && PulseBot[lv.name]) || null;
+  const botPlaying = () => bot && scene === 'play' && !!botPlan();
+  function togglePause() {
+    if (s.dead || s.won) return;
+    paused = !paused; drag = null;
+    if (paused) { viewX = camX; held = false; if (Music.ctx) Music.ctx.suspend(); }
+    else if (Music.ctx) Music.ctx.resume();
+  }
+  function unpause() { if (paused) { paused = false; drag = null; if (Music.ctx) Music.ctx.resume(); } }
+  function clampView() { viewX = Math.max(-10, Math.min(lv.end - (W / T) * 0.5, viewX)); }
   const loadBest = k => { const a = store.get(k, []); return LEVELS.map((_, i) => a[i] || 0); };
   const best = loadBest('best'), bestPractice = loadBest('bestP');
 
   function startLevel(i) {
-    sel = i; lv = LEVELS[i]; attempts = 0; checkpoints = []; held = false;
+    sel = i; lv = LEVELS[i]; attempts = 0; checkpoints = []; held = false; unpause();
     scene = 'play'; respawn(true);
   }
   function respawn(fresh) {
     attempts++;
     particles = []; trail = []; deadTimer = 0; cpTimer = 0;
-    if (practice && checkpoints.length && !fresh) {
+    botTick = 0; botNext = 0;
+    if (botPlaying()) { held = false; pressed = false; }
+    if (practice && !botPlaying() && checkpoints.length && !fresh) {
       s = cloneState(checkpoints[checkpoints.length - 1]);
     } else {
       s = newState(); checkpoints = [];
@@ -155,7 +187,7 @@ const PulseRunner = (() => {
     rot = 0;
   }
   function onEscape() {
-    if (scene === 'play' || scene === 'win') { Music.stop(); scene = 'menu'; }
+    if (scene === 'play' || scene === 'win') { unpause(); Music.stop(); scene = 'menu'; }
     else close();
   }
   function onAction() {
@@ -171,7 +203,7 @@ const PulseRunner = (() => {
     if (!practice) Music.stop();
     const pct = Math.min(100, Math.floor(s.x / lv.end * 100));
     const arr = practice ? bestPractice : best;
-    if (pct > arr[sel]) { arr[sel] = pct; store.set(practice ? 'bestP' : 'best', arr); }
+    if (pct > arr[sel] && !botPlaying()) { arr[sel] = pct; store.set(practice ? 'bestP' : 'best', arr); }
     const cx = s.x + 0.5, cy = s.y + 0.5;
     for (let i = 0; i < 40; i++) {
       const a = Math.random() * Math.PI * 2, v = 2 + Math.random() * 9;
@@ -182,7 +214,8 @@ const PulseRunner = (() => {
   function win() {
     Music.stop(); Music.sfx('win');
     const arr = practice ? bestPractice : best;
-    arr[sel] = 100; store.set(practice ? 'bestP' : 'best', arr);
+    botWon = botPlaying();   // (before the scene changes: botPlaying() only counts during play)
+    if (!botWon) { arr[sel] = 100; store.set(practice ? 'bestP' : 'best', arr); }
     scene = 'win'; winTimer = 0;
   }
 
@@ -191,15 +224,20 @@ const PulseRunner = (() => {
   let acc = 0, last = performance.now();
   function frame(now) {
     if (!active) return;
-    const real = Math.min(0.1, (now - last) / 1000); last = now;
-    if (scene === 'play') {
+    const real = paused ? 0 : Math.min(0.1, (now - last) / 1000); last = now;   // paused: everything holds still
+    if (scene === 'play' && paused) { /* looking around */ }
+    else if (scene === 'play') {
       if (s.dead) {
         deadTimer += real;
         if (deadTimer > 0.9) respawn(false);
       } else {
         acc += real;
         while (acc >= DT && !s.dead && !s.won) {
-          step(s, lv, DT, held, pressed); pressed = false; acc -= DT;
+          if (botPlaying()) {   // the bot's button for this tick
+            const plan = botPlan(); pressed = false;
+            while (botNext < plan.length && plan[botNext] <= botTick) { held = botNext % 2 === 0; if (held) pressed = true; botNext++; }
+          }
+          step(s, lv, DT, held, pressed); pressed = false; acc -= DT; botTick++;
           if (s.dead) die();
         }
         if (s.won) win();
@@ -258,7 +296,7 @@ const PulseRunner = (() => {
 
   function drawWorld() {
     const pulse = beatPulse();
-    camX = s.x - (W / T) * 0.3;
+    camX = paused ? viewX : s.x - (W / T) * 0.3;
     drawBackground(lv, s.x);
 
     // floor
@@ -266,7 +304,7 @@ const PulseRunner = (() => {
     glow(lv.color, 12 + pulse * 18); g.strokeStyle = lv.color; g.lineWidth = 2;
     g.beginPath(); g.moveTo(0, sy(0)); g.lineTo(W, sy(0)); g.stroke();
     // ceiling: shown when flying or flipped
-    if (s.mode === 'ship' || s.grav === -1) {
+    if (s.mode === 'ship' || s.grav === -1 || paused) {
       g.shadowBlur = 0; g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(0, 0, W, sy(PHYS.CEIL));
       glow(lv.color, 12 + pulse * 18); g.beginPath(); g.moveTo(0, sy(PHYS.CEIL)); g.lineTo(W, sy(PHYS.CEIL)); g.stroke();
     }
@@ -374,13 +412,34 @@ const PulseRunner = (() => {
     g.fillText(Math.floor(pct) + '%', bx + bw + 10, by + 9);
     g.fillStyle = 'rgba(255,255,255,0.6)';
     if (!TOUCH) g.fillText('ESC menu', 14, 22);
-    if (practice) { g.fillStyle = '#5aff7d'; g.fillText('PRACTICE', TOUCH ? 50 : 14, TOUCH ? 26 : 42); }
+    if (practice && !botPlaying()) { g.fillStyle = '#5aff7d'; g.fillText('PRACTICE', TOUCH ? 50 : 14, TOUCH ? 26 : 42); }
+    if (botPlaying()) { g.fillStyle = '#ffd23d'; g.fillText('BOT PLAYING', TOUCH ? 50 : 14, TOUCH ? 26 : 42); }
+    if (!TOUCH && !paused) { g.fillStyle = 'rgba(255,255,255,0.45)'; g.textAlign = 'right'; g.fillText('P pause', W - 14, 22); g.textAlign = 'left'; }
+    if (paused) drawPauseOverlay();
     // attempt counter floats in the world near the start
     const ax = sx(4);
     if (ax > -400) {
       g.fillStyle = 'rgba(255,255,255,0.85)'; g.font = `bold ${T * 0.7}px Consolas, monospace`;
       g.fillText('Attempt ' + attempts, ax, sy(5));
     }
+  }
+
+  // paused: a strip at the bottom shows the whole level, the part on screen, and where you are
+  function drawPauseOverlay() {
+    const bh = 64, y0 = H - bh;
+    g.fillStyle = 'rgba(0,0,0,0.75)'; g.fillRect(0, y0, W, bh);
+    const mx = 16, mw = W - 32, my = y0 + 34, toX = x => mx + Math.max(0, Math.min(1, x / lv.end)) * mw;
+    g.fillStyle = 'rgba(255,255,255,0.15)'; g.fillRect(mx, my, mw, 10);
+    for (const o of lv.objs) if (o.t === 'portal') {   // mode changes, coloured like their portals
+      g.fillStyle = { ship: '#ff3df2', cube: '#5aff7d', flip: '#ffd23d', norm: '#3db8ff' }[o.k]; g.fillRect(toX(o.x) - 1, my - 3, 2, 16);
+    }
+    const a = toX(viewX), b = toX(viewX + W / T);
+    g.strokeStyle = '#fff'; g.lineWidth = 2; g.strokeRect(a, my - 5, Math.max(4, b - a), 20);   // what's on screen
+    g.fillStyle = lv.color; g.beginPath(); g.arc(toX(s.x), my + 5, 5, 0, Math.PI * 2); g.fill();   // you
+    g.fillStyle = '#fff'; g.font = 'bold 14px Consolas, monospace'; g.textAlign = 'center';
+    const pctView = Math.max(0, Math.min(100, Math.round((viewX + W / T / 2) / lv.end * 100)));
+    g.fillText(`PAUSED · viewing ${pctView}% · drag, scroll or ←/→ to look around · P to resume`, W / 2, y0 + 20);
+    g.textAlign = 'left';
   }
 
   let menuButtons = [];
@@ -396,14 +455,17 @@ const PulseRunner = (() => {
     g.fillText(TOUCH ? 'TAP to jump  ·  hold to fly' : 'SPACE / CLICK / TAP to jump  ·  hold to fly  ·  ESC back', W / 2, H * 0.15 + 30);
 
     menuButtons = [];
-    const gap = 14, cw = Math.min(240, (W - 40 - gap * (COLS - 1)) / COLS), ch = Math.min(130, H * 0.2);
-    const rows = Math.ceil(LEVELS.length / COLS), total = COLS * cw + (COLS - 1) * gap, top = H * 0.25;
+    const rows = Math.ceil(LEVELS.length / COLS), top = H * 0.25;
+    // cards shrink so every row, the practice button and the hint line still fit on short screens
+    const gap = 14, cw = Math.min(240, (W - 40 - gap * (COLS - 1)) / COLS);
+    const ch = Math.max(48, Math.min(130, H * 0.2, (H - top - 100 - gap * (rows - 1)) / rows));
     LEVELS.forEach((l, i) => {
-      const x = (W - total) / 2 + (i % COLS) * (cw + gap), y = top + Math.floor(i / COLS) * (ch + gap);
-      const on = i === sel;
-      g.fillStyle = on ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.4)'; g.fillRect(x, y, cw, ch);
-      if (on) glow(l.color, 20);
-      g.strokeStyle = l.color; g.lineWidth = on ? 3 : 1.5; g.strokeRect(x, y, cw, ch); g.shadowBlur = 0;
+      const row = Math.floor(i / COLS), inRow = Math.min(COLS, LEVELS.length - row * COLS);   // a short last row is centred
+      const x = (W - (inRow * cw + (inRow - 1) * gap)) / 2 + (i % COLS) * (cw + gap), y = top + row * (ch + gap);
+      const on = i === sel, special = l.diff === 'IMPOSSIBLE';
+      g.fillStyle = on ? 'rgba(255,255,255,0.08)' : special ? 'rgba(60,0,0,0.55)' : 'rgba(0,0,0,0.4)'; g.fillRect(x, y, cw, ch);
+      if (on || special) glow(l.color, special ? 14 + 12 * (0.5 + 0.5 * Math.sin(time * 4)) : 20);   // the special level throbs
+      g.strokeStyle = l.color; g.lineWidth = on ? 3 : special ? 2.5 : 1.5; g.strokeRect(x, y, cw, ch); g.shadowBlur = 0;
       g.fillStyle = l.color; g.font = `bold ${Math.min(cw / 10, 20)}px Consolas, monospace`;
       g.fillText(l.name, x + cw / 2, y + ch * 0.28);
       g.fillStyle = 'rgba(255,255,255,0.7)'; g.font = `${Math.min(cw / 15, 13)}px Consolas, monospace`;
@@ -415,14 +477,17 @@ const PulseRunner = (() => {
       g.fillText('best ' + bb + '%', x + cw / 2, y + ch * 0.85);
       menuButtons.push({ x, y, w: cw, h: ch, fn: () => startLevel(i) });
     });
-    const py = top + rows * (ch + gap) + 16, pw = 220;
-    g.strokeStyle = practice ? '#5aff7d' : 'rgba(255,255,255,0.4)'; g.lineWidth = 2;
-    g.strokeRect(W / 2 - pw / 2, py, pw, 36);
-    g.fillStyle = practice ? '#5aff7d' : 'rgba(255,255,255,0.7)'; g.font = '14px Consolas, monospace';
-    g.fillText(`${TOUCH ? '' : '[P] '}PRACTICE: ${practice ? 'ON' : 'OFF'}`, W / 2, py + 23);
-    menuButtons.push({ x: W / 2 - pw / 2, y: py, w: pw, h: 36, fn: () => { practice = !practice; } });
+    const py = top + rows * (ch + gap) + 16, pw = Math.min(200, (W - 52) / 2);
+    const toggle = (x, on, color, label, fn) => {
+      g.strokeStyle = on ? color : 'rgba(255,255,255,0.4)'; g.lineWidth = 2; g.strokeRect(x, py, pw, 36);
+      g.fillStyle = on ? color : 'rgba(255,255,255,0.7)'; g.font = '14px Consolas, monospace';
+      g.fillText(label, x + pw / 2, py + 23);
+      menuButtons.push({ x, y: py, w: pw, h: 36, fn });
+    };
+    toggle(W / 2 - pw - 6, practice, '#5aff7d', `${TOUCH ? '' : '[P] '}PRACTICE: ${practice ? 'ON' : 'OFF'}`, () => { practice = !practice; });
+    toggle(W / 2 + 6, bot, '#ffd23d', `${TOUCH ? '' : '[B] '}BOT: ${bot ? 'ON' : 'OFF'}`, () => { bot = !bot; });
     g.fillStyle = 'rgba(255,255,255,0.45)';
-    g.fillText(TOUCH ? 'tap a level to play' : `1-${LEVELS.length} or click a level  ·  arrows + ENTER  ·  ESC terminal`, W / 2, py + 64);
+    g.fillText(TOUCH ? (bot ? 'tap a level to watch the bot play it' : 'tap a level to play') : bot ? 'pick a level to watch the bot play it  ·  P pauses' : `1-${LEVELS.length} or click a level  ·  arrows + ENTER  ·  P pauses a run  ·  ESC terminal`, W / 2, py + 64);
   }
 
   function drawWin() {
@@ -430,7 +495,7 @@ const PulseRunner = (() => {
     g.fillStyle = `rgba(0,0,0,${Math.min(0.7, winTimer)})`; g.fillRect(0, 0, W, H);
     g.textAlign = 'center'; glow(lv.color, 30); g.fillStyle = '#fff';
     g.font = `bold ${Math.min(W / 12, 64)}px Consolas, monospace`;
-    g.fillText('LEVEL COMPLETE', W / 2, H * 0.42); g.shadowBlur = 0;
+    g.fillText(botWon ? 'THE BOT BEAT IT' : lv.diff === 'IMPOSSIBLE' && !practice ? 'YOU BEAT ASIAN MODE' : 'LEVEL COMPLETE', W / 2, H * 0.42); g.shadowBlur = 0;
     g.font = '18px Consolas, monospace'; g.fillStyle = lv.color;
     g.fillText(`${lv.name}  ·  ${attempts} attempt${attempts === 1 ? '' : 's'}${practice ? '  ·  practice' : ''}`, W / 2, H * 0.42 + 40);
     if (winTimer > 0.8) { g.fillStyle = 'rgba(255,255,255,0.7)'; g.fillText(TOUCH ? 'tap to continue' : 'press SPACE / tap to continue', W / 2, H * 0.42 + 80); }

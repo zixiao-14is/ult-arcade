@@ -7,7 +7,7 @@ A small browser game launcher dressed up as a terminal. Type a command and the g
 
 | Game | Command | What it is |
 | --- | --- | --- |
-| Pulse Runner | `/game-run --pulserunner` | Neon rhythm auto-runner with music generated live in the browser |
+| Pulse Runner | `/game-run --pulserunner` | Neon rhythm auto-runner with music generated live in the browser, 7 levels including the near-impossible Asian Mode |
 | Snake | `/game-run --snake` | Classic snake with a local top-10 leaderboard |
 | Tic-Tac-Toe | `/game-run --tictactoe` | 2 players on one keyboard, or a perfect minimax bot |
 | Connect 4 | `/game-run --connect4` | The classic 7×6 board game, 2 players on one keyboard |
@@ -41,9 +41,11 @@ Every game also works on its own: open its `index.html` inside `games/` directly
 ├── .tools/                    Java, Android SDK and Gradle for building the app; safe to delete
 └── games/
     ├── pulse-runner/
-    │   ├── index.html         Page that loads the two scripts below
+    │   ├── index.html         Page that loads the three scripts below
     │   ├── engine.js          Physics + level data (PulseEngine), no DOM, runs headless in Node
-    │   └── game.js            PulseRunner: canvas drawing, input, music, menus
+    │   ├── bot.js             The bot's solved runs for every level (made by make-bot.js)
+    │   ├── game.js            PulseRunner: canvas drawing, input, music, menus, pause, bot
+    │   └── make-bot.js        Node tool: solves every level and writes bot.js (not part of the game)
     ├── snake/
     │   ├── index.html
     │   └── snake.js           The whole game + leaderboard
@@ -92,9 +94,11 @@ You're a glowing cube that runs forward on its own. Time your jumps to the beat 
 | Input | Action |
 | --- | --- |
 | `Space`, `↑`, `W`, click or tap | Jump (hold to keep jumping, or to climb in ship mode) |
-| `1`–`6` or click a card | Start a level |
+| `1`–`7` or click a card | Start a level |
 | Arrow keys then `Enter` | Pick a level from the menu |
-| `P` | Toggle practice mode |
+| `P` (menu) | Toggle practice mode |
+| `B` (menu) | Toggle the bot: pick a level and watch it play a perfect run |
+| `P` (during a run) | Pause. While paused, drag, scroll the mouse wheel or use `←` `→` (`Shift` = faster, `Home` / `End` = start / finish) to look through the whole level. `P` again to carry on |
 | `Esc` | Back to the menu, or back to the terminal from the menu |
 
 ### Levels
@@ -107,6 +111,30 @@ You're a glowing cube that runs forward on its own. Time your jumps to the beat 
 | 4 | Pulse Cascade | Normal | 11.2 | 134 |
 | 5 | Overclock | Hard | 12 | 156 |
 | 6 | Hyperdrive | Hard | 12 | 160 |
+| 7 | **Asian Mode** | **Impossible** | 12 | 174 |
+
+### Asian Mode
+
+The special level. Every jump is possible, but only with near-perfect timing, every single time.
+
+- **About 2 minutes long** (1,388 tiles, about 5 times a normal level), with no checkpoints outside practice mode.
+- A short normal-gravity warm-up, then it flips upside down for good and **switches every 1.5 seconds** between **running upside down** and **flying upside down** (where holding the button takes you *down*), for 36 rounds.
+- **Every run** lands you under a low roof, so you can't just keep holding the button. Let go, then jump a **triple spike with a spike right above it**. Jump a hair early and you hit the spike above, a hair late and you land on the triple. The window is about **21 ms**: just over one frame at 60 fps.
+- **Every flight** is a spike-lined tunnel that climbs and comes back down. Every other one has a pinch in the middle only one tile tall.
+- The warm-up has its own triples: low ceilings (29 ms) and pairs (triple, one-tile gap, triple).
+
+How do we know it's possible? A solver beats it at 60 fps, pressing or releasing only on frame boundaries, from **all four ways a frame can line up with the 240 Hz physics**. The in-game **BOT** (press `B` in the menu) replays a solved run, so you can watch it finish in one attempt.
+
+How hard is it? Each press's timing window is measured, and the chance of hitting all of them in one run is worked out for a player with a given timing accuracy (plus up to a frame of screen delay):
+
+| Player's timing accuracy | Expected attempts to win once |
+| --- | --- |
+| ±8 ms (rhythm-game world class) | about 500,000 |
+| ±10 ms (elite) | about 100 million |
+| ±15 ms (very good) | about 10¹⁴ |
+| ±25 ms (most people) | about 10²⁸ (never) |
+
+Practice mode works here too, so you can learn it one round at a time. Its best score is kept separately, and the win screen only says *YOU BEAT ASIAN MODE* for a real run, not a practice or bot one. The bot's runs never count toward your best.
 
 ### Objects
 
@@ -140,6 +168,8 @@ So every level follows:
 - Leave room to land between obstacles before the next jump.
 
 Every level is checked with a solver that may only press or release every 150 ms (roughly human precision) and must beat the level from 5 different timing offsets.
+
+Asian Mode breaks these rules on purpose (see above). It keeps one rule of its own: it must stay beatable at 60 fps whichever way the frames line up with the physics.
 
 ### Music
 
@@ -277,11 +307,12 @@ Your best result is saved in `localStorage` under `pebble:best`.
 `PulseEngine` (in `games/pulse-runner/engine.js`) exposes:
 
 - `PHYS`: physics constants (gravity, jump speed, pad and orb strength, ship acceleration and top speed, ceiling height, coyote time)
-- `LEVELS`: the six levels
+- `LEVELS`: the seven levels
 - `newState()` / `cloneState(s)`: create or copy a player state (`cloneState` is used for practice checkpoints)
 - `step(state, level, dt, held, pressed)`: advance the simulation by one tick
+- `builder()` / `level(...)`: the level-building helpers below, so tools can build test levels
 
-The game calls `step` at a fixed 240 Hz, separate from the render frame rate, so physics behaves the same on any display.
+The game calls `step` at a fixed 240 Hz, separate from the render frame rate, so physics behaves the same on any display. `level()` sorts a level's objects by `x`, and `step` only looks at the ones near the player, so a long level like Asian Mode costs no more per tick than a short one.
 
 ### Making levels
 
@@ -299,7 +330,17 @@ L.hang(228, 2);           // spikes hanging from the ceiling
 L.portal(116, 'ship');    // 'ship' | 'cube' | 'flip' | 'norm'
 ```
 
-Wrap it with `level(name, diff, speed, end, L, color, color2, bg, music)` and add it to the `LEVELS` array. The menu and best scores pick up new levels automatically.
+Wrap it with `level(name, diff, speed, end, L, color, color2, bg, music)` and add it to the `LEVELS` array. The menu and best scores pick up new levels automatically, and the menu centres a short last row of cards.
+
+Asian Mode (`asianMode()` in `engine.js`) is built a different way: from pieces (`pair`, `low`, `turn`, and `round` for one 1.5 s run plus 1.5 s flight) placed one after another by a cursor. Everything is built in the coordinates of the side you stand on, so it's mirrored automatically while gravity is flipped. `ROUND_JUMP`, `ROUND_PEAK`, `ROUND_GAP` and `ROUND_PINCH` tune the rounds. A level with the difficulty name `IMPOSSIBLE` gets the throbbing red card in the menu.
+
+### The bot
+
+`games/pulse-runner/make-bot.js` is a Node tool (it isn't loaded by the game or copied into the app). It solves every level with a beam search at 60 fps and writes the button presses to `bot.js`, which the in-game bot replays tick for tick. **After changing any level, run it again** (about 20 seconds), or the bot will crash into the changed part:
+
+```
+node games/pulse-runner/make-bot.js
+```
 
 ## Adding a new game
 

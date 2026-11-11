@@ -6,7 +6,7 @@ const path = require('path');
 const root = path.resolve(__dirname, '..', '..');
 const www = path.resolve(__dirname, '..', 'www');
 const FILES = ['index.html', 'launcher.js'];
-const SKIP = new Set(['pace.js']);   // Node tools that the games never load
+const SKIP = new Set(['pace.js', 'make-bot.js']);   // Node tools that the games never load
 
 fs.rmSync(www, { recursive: true, force: true });
 fs.mkdirSync(www, { recursive: true });
