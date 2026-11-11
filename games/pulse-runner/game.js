@@ -161,7 +161,7 @@ const PulseRunner = (() => {
   function togglePause() {
     if (s.dead || s.won) return;
     paused = !paused; drag = null;
-    if (paused) { viewX = camX; held = false; if (Music.ctx) Music.ctx.suspend(); }
+    if (paused) { viewX = camX; if (!botPlaying()) held = false; if (Music.ctx) Music.ctx.suspend(); }   // the bot keeps its button
     else if (Music.ctx) Music.ctx.resume();
   }
   function unpause() { if (paused) { paused = false; drag = null; if (Music.ctx) Music.ctx.resume(); } }
@@ -501,7 +501,19 @@ const PulseRunner = (() => {
     if (winTimer > 0.8) { g.fillStyle = 'rgba(255,255,255,0.7)'; g.fillText(TOUCH ? 'tap to continue' : 'press SPACE / tap to continue', W / 2, H * 0.42 + 80); }
   }
 
+  // A level with a `blur` setting blurs the whole screen for a moment every few seconds of the run. It goes by how far
+  // you are (not the clock), so it hits the same spots every attempt. Never while paused, so you can look around clearly.
+  function blurNow() {
+    const b = scene === 'play' && !paused && lv && lv.blur;
+    if (!b) return 0;
+    const t = s.x / lv.speed, phase = t % b.every, fade = Math.min(0.25, b.length / 3);
+    if (t < b.every || phase >= b.length) return 0;
+    return b.px * Math.min(1, phase / fade, (b.length - phase) / fade);
+  }
+  let blurShown = '';
   function draw() {
+    const bl = blurNow(), f = bl > 0.3 ? `blur(${bl.toFixed(1)}px)` : '';
+    if (f !== blurShown) { cv.style.filter = f; blurShown = f; }   // CSS blur on the canvas: cheap, and only while it's on
     g.clearRect(0, 0, W, H);
     if (scene === 'menu') drawMenu();
     else if (scene === 'play') drawWorld();

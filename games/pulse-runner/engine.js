@@ -207,7 +207,11 @@
     for (let r = 0; r < 38; r++) round(ROUND_JUMP[r % ROUND_JUMP.length], ROUND_PEAK[r % ROUND_PEAK.length], ROUND_GAP, r % 2 ? ROUND_PINCH : 0);
     // last run to the finish
     L.portal(x, 'cube'); cap(x, 6, 1.75); tri(x + 9); cap(x + 9, 1, ROUND_JUMP[0]); x += 18;
-    return level('Asian Mode', 'IMPOSSIBLE', 12, x + 6, L, '#ff2e2e', '#ffd23d', ['#3a0606', '#0a0101'], { bpm: 174, root: 38, prog: [0, 1, 5, 6], seed: 888 });
+    const lv = level('Asian Mode', 'IMPOSSIBLE', 12, x + 6, L, '#ff2e2e', '#ffd23d', ['#3a0606', '#0a0101'], { bpm: 174, root: 38, prog: [0, 1, 5, 6], seed: 888 });
+    // the screen blurs for `length` seconds every `every` seconds into the run (by position, so always the same spots).
+    // Only the picture: the physics don't change, so the level is exactly as possible as without it.
+    lv.blur = { every: 1.5, length: 0.6, px: 8 };   // lands on the jump of every run
+    return lv;
   }
   // tuning for the rounds (changed by the level tools)
   const ROUND_JUMP = [2.74], ROUND_PEAK = [2.5, 2.1, 2.8], ROUND_GAP = 1.35, ROUND_PINCH = 1.0;

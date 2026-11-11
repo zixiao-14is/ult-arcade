@@ -121,10 +121,11 @@ The special level. Every jump is possible, but only with near-perfect timing, ev
 - It flips upside down in the first second and from then on **switches every 1.5 seconds** between **running upside down** and **flying upside down** (where holding the button takes you *down*), for 38 rounds, start to finish. There's no warm-up.
 - **Every run** lands you under a low roof, so you can't just keep holding the button. Let go, then jump a **triple spike with a spike right above it**. Jump a hair early and you hit the spike above, a hair late and you land on the triple. The window is about **21 ms**: just over one frame at 60 fps.
 - **Every flight** is a spike-lined tunnel that climbs and comes back down. Every other one has a pinch in the middle only one tile tall.
+- **The screen blurs every 1.5 seconds** for 0.6 s (8 px). It goes by how far you are, so it always lands on the same spots: right on the jump of every run and the middle of every flight. You make the hardest presses half blind. It only changes the picture, not the physics, so the level is exactly as possible as without it. It's never blurred while paused.
 
 How do we know it's possible? A solver beats it at 60 fps, pressing or releasing only on frame boundaries, from **all four ways a frame can line up with the 240 Hz physics**. The in-game **BOT** (press `B` in the menu) replays a solved run, so you can watch it finish in one attempt.
 
-How hard is it? Each press's timing window is measured, and the chance of hitting all of them in one run is worked out for a player with a given timing accuracy (plus up to a frame of screen delay):
+How hard is it? Each press's timing window is measured, and the chance of hitting all of them in one run is worked out for a player with a given timing accuracy (plus up to a frame of screen delay). These numbers leave out the blur, which only makes it harder:
 
 | Player's timing accuracy | Expected attempts to win once |
 | --- | --- |
