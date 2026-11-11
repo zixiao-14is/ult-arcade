@@ -5,6 +5,8 @@ A small browser game launcher dressed up as a terminal. Type a command and the g
 **Play it:** https://zixiao-14is.github.io/ult-arcade/ (on an iPhone, open it in Safari, then Share → Add to Home Screen)
 **Android app:** download `ULT-Arcade.apk` from the [latest release](https://github.com/zixiao-14is/ult-arcade/releases/latest)
 
+The website updates by itself a minute or two after every push to `main`, through `.github/workflows/pages.yml`. That workflow copies just the site files: the launcher, `games/` and `icons/`, without `app/` or the Node tools.
+
 | Game | Command | What it is |
 | --- | --- | --- |
 | Pulse Runner | `/game-run --pulserunner` | Neon rhythm auto-runner with music generated live in the browser, 7 levels including the near-impossible Asian Mode |

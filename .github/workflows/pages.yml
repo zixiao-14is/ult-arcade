@@ -1,0 +1,46 @@
+# Publishes the website (https://zixiao-14is.github.io/ult-arcade/) on every push to main.
+# Only the files the site needs go up: the launcher, the games and the icons. The Android project (app/) and the
+# Node-only tools (pace.js, make-bot.js) stay out. Can also be started by hand from the Actions tab.
+name: Publish website
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# one publish at a time; a newer push replaces one that hasn't started yet
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collect the site files
+        run: |
+          mkdir _site
+          cp index.html launcher.js manifest.webmanifest sw.js _site/
+          cp -r icons games _site/
+          rm -f _site/games/only-up/pace.js _site/games/pulse-runner/make-bot.js
+          touch _site/.nojekyll
+          find _site -type f | sort
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
