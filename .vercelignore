@@ -1,0 +1,14 @@
+# Vercel hosts just the website: index.html, launcher.js, manifest, sw.js, icons/ and games/.
+# Everything below stays off it.
+app/
+.tools/
+.claude/
+.github/
+README.md
+games/pulse-runner/make-bot.js
+games/only-up/pace.js
+*.log
+
+# Vercel's own files and private tokens: never part of the site
+.vercel
+.env*

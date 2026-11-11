@@ -23,3 +23,6 @@ app/android/capacitor-cordova-android-plugins/build/
 # signing keys, if you ever make one for the Play Store: never upload these
 *.jks
 *.keystore
+
+.vercel
+.env*

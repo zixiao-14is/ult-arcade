@@ -2,10 +2,12 @@
 
 A small retro game arcade by ULT Games for the browser, phones and Android: a pixel-art screen of game cards. Tap or click a game and it opens full screen.
 
-**Play it:** https://zixiao-14is.github.io/ult-arcade/ (on an iPhone, open it in Safari, then Share → Add to Home Screen)
+**Play it:** https://ult-arcade.vercel.app (on an iPhone, open it in Safari, then Share → Add to Home Screen)
 **Android app:** download `ULT-Arcade.apk` from the [latest release](https://github.com/zixiao-14is/ult-arcade/releases/latest)
 
-The website updates by itself a minute or two after every push to `main`, through `.github/workflows/pages.yml`. That workflow copies just the site files: the launcher, `games/` and `icons/`, without `app/` or the Node tools.
+The website is hosted on **Vercel** and updates by itself about a minute after every push to `main`. The repository is connected to the Vercel project `ult-arcade`. It's a plain static site with no build step (`vercel.json`), and `.vercelignore` keeps `app/`, the Node tools, the README and Vercel's private files off it. To publish by hand: `npx vercel deploy --prod`.
+
+There's also a GitHub Pages copy at https://zixiao-14is.github.io/ult-arcade/, published by `.github/workflows/pages.yml`, but it only updates when GitHub Actions is running for the account.
 
 | Game | What it is |
 | --- | --- |
