@@ -157,8 +157,9 @@
     return level('Hyperdrive', 'HARD', 12, 254, L, '#ffe14d', '#ff3d7f', ['#2a2206', '#090701'], { bpm: 160, root: 38, prog: [0, 10, 8, 7], seed: 77 });
   }
 
-  // The special level. It breaks the normal design rules on purpose. After a short normal-gravity warm-up it switches
-  // every 1.5 seconds between running upside down and flying upside down (where holding takes you DOWN), for 36 rounds.
+  // The special level. It breaks the normal design rules on purpose. It flips upside down straight away, then from the
+  // first second switches every 1.5 seconds between running upside down and flying upside down (where holding takes
+  // you DOWN), for 38 rounds.
   // Every jump is a triple spike under a low spike, with a window of about 21 ms: more than one 60 fps frame, so it
   // can always be done, but only with near-perfect timing. A solver plays the whole level through to prove it.
   function asianMode() {
@@ -170,16 +171,8 @@
     const flip = x => { L.portal(x, up ? 'norm' : 'flip', 5); up = !up; };
     const tri = x => sp(x, 3);
 
-    // The pieces. Each places its obstacles at the cursor x and moves x past them plus room to land.
-    // Windows measured at speed 12 (how long you have to press):
-    let x = 10;
-    const run = n => { x += n; };
-    // triple, one-tile gap, triple: the second jump has to leave the gap at once (about 42 ms)
-    const pair = () => { tri(x); tri(x + 4); x += 7 + 4.5; };
-    // triple under a low spike: jump early and you hit the spike above, late and you hit the triple (29 ms)
-    const low = (h = 2.8) => { tri(x); cap(x, 1, h); x += 3 + 4; };
-    // flip gravity on the ground; the fall to the other side needs room
-    const turn = () => { flip(x); x += 8; };
+    // The pieces are placed one after another at the cursor x.
+    let x = 3;
     // one column of a spike-lined tunnel: centre c, opening `open`
     const column = (cx, c, open) => {
       const lo = c - open / 2, hi = c + open / 2;
@@ -209,11 +202,9 @@
       x += 18;
     };
 
-    // warm-up (it isn't one)
-    tri(x); run(6); low(); pair(); low(); pair(); low();
-    // then upside down for good: 36 rounds of run / fly, 1.5 s each
-    turn();
-    for (let r = 0; r < 36; r++) round(ROUND_JUMP[r % ROUND_JUMP.length], ROUND_PEAK[r % ROUND_PEAK.length], ROUND_GAP, r % 2 ? ROUND_PINCH : 0);
+    // upside down from the start (the fall up to the ceiling takes about 5 tiles), then 38 rounds of run / fly, 1.5 s each
+    flip(x); x = 12;
+    for (let r = 0; r < 38; r++) round(ROUND_JUMP[r % ROUND_JUMP.length], ROUND_PEAK[r % ROUND_PEAK.length], ROUND_GAP, r % 2 ? ROUND_PINCH : 0);
     // last run to the finish
     L.portal(x, 'cube'); cap(x, 6, 1.75); tri(x + 9); cap(x + 9, 1, ROUND_JUMP[0]); x += 18;
     return level('Asian Mode', 'IMPOSSIBLE', 12, x + 6, L, '#ff2e2e', '#ffd23d', ['#3a0606', '#0a0101'], { bpm: 174, root: 38, prog: [0, 1, 5, 6], seed: 888 });

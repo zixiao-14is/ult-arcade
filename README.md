@@ -117,11 +117,10 @@ You're a glowing cube that runs forward on its own. Time your jumps to the beat 
 
 The special level. Every jump is possible, but only with near-perfect timing, every single time.
 
-- **About 2 minutes long** (1,388 tiles, about 5 times a normal level), with no checkpoints outside practice mode.
-- A short normal-gravity warm-up, then it flips upside down for good and **switches every 1.5 seconds** between **running upside down** and **flying upside down** (where holding the button takes you *down*), for 36 rounds.
+- **About 2 minutes long** (1,404 tiles, about 5 times a normal level), with no checkpoints outside practice mode.
+- It flips upside down in the first second and from then on **switches every 1.5 seconds** between **running upside down** and **flying upside down** (where holding the button takes you *down*), for 38 rounds, start to finish. There's no warm-up.
 - **Every run** lands you under a low roof, so you can't just keep holding the button. Let go, then jump a **triple spike with a spike right above it**. Jump a hair early and you hit the spike above, a hair late and you land on the triple. The window is about **21 ms**: just over one frame at 60 fps.
 - **Every flight** is a spike-lined tunnel that climbs and comes back down. Every other one has a pinch in the middle only one tile tall.
-- The warm-up has its own triples: low ceilings (29 ms) and pairs (triple, one-tile gap, triple).
 
 How do we know it's possible? A solver beats it at 60 fps, pressing or releasing only on frame boundaries, from **all four ways a frame can line up with the 240 Hz physics**. The in-game **BOT** (press `B` in the menu) replays a solved run, so you can watch it finish in one attempt.
 
@@ -129,10 +128,10 @@ How hard is it? Each press's timing window is measured, and the chance of hittin
 
 | Player's timing accuracy | Expected attempts to win once |
 | --- | --- |
-| ±8 ms (rhythm-game world class) | about 500,000 |
-| ±10 ms (elite) | about 100 million |
-| ±15 ms (very good) | about 10¹⁴ |
-| ±25 ms (most people) | about 10²⁸ (never) |
+| ±8 ms (rhythm-game world class) | about 700,000 |
+| ±10 ms (elite) | about 150 million |
+| ±15 ms (very good) | about 3 × 10¹⁴ |
+| ±25 ms (most people) | about 10²⁹ (never) |
 
 Practice mode works here too, so you can learn it one round at a time. Its best score is kept separately, and the win screen only says *YOU BEAT ASIAN MODE* for a real run, not a practice or bot one. The bot's runs never count toward your best.
 
@@ -332,7 +331,7 @@ L.portal(116, 'ship');    // 'ship' | 'cube' | 'flip' | 'norm'
 
 Wrap it with `level(name, diff, speed, end, L, color, color2, bg, music)` and add it to the `LEVELS` array. The menu and best scores pick up new levels automatically, and the menu centres a short last row of cards.
 
-Asian Mode (`asianMode()` in `engine.js`) is built a different way: from pieces (`pair`, `low`, `turn`, and `round` for one 1.5 s run plus 1.5 s flight) placed one after another by a cursor. Everything is built in the coordinates of the side you stand on, so it's mirrored automatically while gravity is flipped. `ROUND_JUMP`, `ROUND_PEAK`, `ROUND_GAP` and `ROUND_PINCH` tune the rounds. A level with the difficulty name `IMPOSSIBLE` gets the throbbing red card in the menu.
+Asian Mode (`asianMode()` in `engine.js`) is built a different way: from `round` pieces (one 1.5 s run plus one 1.5 s flight) placed one after another by a cursor, right after a gravity flip at the start. Everything is built in the coordinates of the side you stand on, so it's mirrored automatically while gravity is flipped. `ROUND_JUMP`, `ROUND_PEAK`, `ROUND_GAP` and `ROUND_PINCH` tune the rounds. A level with the difficulty name `IMPOSSIBLE` gets the throbbing red card in the menu.
 
 ### The bot
 
