@@ -487,7 +487,7 @@ const PulseRunner = (() => {
     toggle(W / 2 - pw - 6, practice, '#5aff7d', `${TOUCH ? '' : '[P] '}PRACTICE: ${practice ? 'ON' : 'OFF'}`, () => { practice = !practice; });
     toggle(W / 2 + 6, bot, '#ffd23d', `${TOUCH ? '' : '[B] '}BOT: ${bot ? 'ON' : 'OFF'}`, () => { bot = !bot; });
     g.fillStyle = 'rgba(255,255,255,0.45)';
-    g.fillText(TOUCH ? (bot ? 'tap a level to watch the bot play it' : 'tap a level to play') : bot ? 'pick a level to watch the bot play it  ·  P pauses' : `1-${LEVELS.length} or click a level  ·  arrows + ENTER  ·  P pauses a run  ·  ESC terminal`, W / 2, py + 64);
+    g.fillText(TOUCH ? (bot ? 'tap a level to watch the bot play it' : 'tap a level to play') : bot ? 'pick a level to watch the bot play it  ·  P pauses' : `1-${LEVELS.length} or click a level  ·  arrows + ENTER  ·  P pauses a run  ·  ESC arcade`, W / 2, py + 64);
   }
 
   function drawWin() {

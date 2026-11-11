@@ -2,7 +2,7 @@
 // and played like an app. Every file is saved on install; after that the saved copy is used straight away
 // and quietly refreshed from the network, so updates show up on the next launch.
 // When you add a game or a file, list it here and bump VERSION so phones fetch the new set.
-const VERSION = 'ult-arcade-7';
+const VERSION = 'ult-arcade-8';
 const FILES = [
   './', 'index.html', 'launcher.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',

@@ -188,7 +188,7 @@
     const go = board && !over ? 'continue' : 'start';
     text(TOUCH ? `TAP to ${go}` : `ENTER / SPACE or click  ${go}`, W / 2, H * 0.55, 18 * Math.max(s, 0.8), C.text);
     if (best) text(bestText(), W / 2, H * 0.55 + 30, 15, C.pick);
-    if (window.parent !== window && !TOUCH) text('ESC back to terminal', W / 2, H * 0.55 + 58, 13, C.dim);
+    if (window.parent !== window && !TOUCH) text('ESC back to the arcade', W / 2, H * 0.55 + 58, 13, C.dim);
   }
 
   function frame(now) {

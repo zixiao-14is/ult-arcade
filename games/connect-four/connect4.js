@@ -174,7 +174,7 @@
     for (let i = 0; i < 4; i++)
       disc(W / 2 + (i - 1.5) * size, H * 0.5 + Math.sin(t - i * 0.7) * size * 0.14, i % 2 ? 'Y' : 'R', size);
     text(TOUCH ? 'TAP to start' : 'ENTER / SPACE or click  start', W / 2, H * 0.66, 18 * Math.max(s, 0.8), C.text);
-    if (window.parent !== window && !TOUCH) text('ESC back to terminal', W / 2, H * 0.66 + 34, 13, C.dim);
+    if (window.parent !== window && !TOUCH) text('ESC back to the arcade', W / 2, H * 0.66 + 34, 13, C.dim);
   }
 
   function frame(now) {

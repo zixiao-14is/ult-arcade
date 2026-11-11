@@ -1,4 +1,5 @@
-// Phone launcher (ULT Arcade): instead of the terminal, a loading screen and then a low-res pixel-art grid of games to tap.
+// ULT Arcade, the launcher on every device: a loading screen, then a low-res pixel-art grid of games.
+// Tap or click a game; on a computer the arrow keys + Enter (or the number keys) work too.
 // Phones have no Esc key, so the back button (and the phone's own back gesture) sends Esc to the open game,
 // and each game does what Esc does there: pause, back to its menu, or back here.
 (function (root) {
@@ -49,7 +50,9 @@
   };
 
   let cv, g, games, open, close, frame, backBtn;
-  let VW = 180, VH = 320, scale = 2, cards = [], pressed = -1, gameOpen = false, skipPop = false;
+  let VW = 180, VH = 320, scale = 2, cards = [], cols = 2, pressed = -1, gameOpen = false, skipPop = false;
+  let sel = -1, hover = -1;   // keyboard choice and the card under the mouse (computers)
+  const MOUSE = !matchMedia('(pointer: coarse)').matches;
 
   function text(s, x, y, color, size = 1, align = 'left') {
     s = String(s).toUpperCase();
@@ -75,7 +78,8 @@
     VW = Math.ceil(innerWidth / scale); VH = Math.ceil(innerHeight / scale);
     cv.width = VW; cv.height = VH;
     cv.style.width = VW * scale + 'px'; cv.style.height = VH * scale + 'px';
-    const cols = VW >= 250 ? 3 : 2, rows = Math.ceil(games.length / cols), gap = 6;
+    cols = VW >= 250 ? 3 : 2;
+    const rows = Math.ceil(games.length / cols), gap = 6;
     const top = Math.max(38, Math.floor(VH * 0.16)), bottom = 16;
     const w = Math.min(96, Math.floor((VW - gap * (cols + 1)) / cols));
     const h = Math.max(44, Math.min(84, Math.floor((VH - top - bottom - gap * (rows - 1)) / rows)));
@@ -124,11 +128,13 @@
     backdrop(now);
     const titleSize = VW >= 160 ? 3 : 2;
     text('ULT ARCADE', VW / 2, Math.max(8, cards[0].y - 30), '#7fd7ff', titleSize, 'center');
-    text('TAP A GAME', VW / 2, cards[0].y - 11, C.dim, 1, 'center');
+    text(MOUSE ? 'CLICK A GAME' : 'TAP A GAME', VW / 2, cards[0].y - 11, C.dim, 1, 'center');
+    const last = cards[cards.length - 1];
+    if (MOUSE && last.y + last.h + 14 < VH) text('OR ARROWS AND ENTER', VW / 2, last.y + last.h + 8, C.dim, 1, 'center');
     cards.forEach((c, i) => {
       const meta = CARDS[c.game.id] || { color: C.text, draw() {} };
-      const down = i === pressed;
-      px(down ? meta.color : C.edge, c.x, c.y, c.w, c.h);
+      const down = i === pressed, lit = i === sel || i === hover;
+      px(down || lit ? meta.color : C.edge, c.x, c.y, c.w, c.h);
       px(down ? C.hi : C.card, c.x + 1, c.y + 1, c.w - 2, c.h - 2);
       px(C.hi, c.x + 1, c.y + 1, c.w - 2, 1);
       // the 24x24 picture is drawn at double size when the card has room for it
@@ -149,7 +155,7 @@
   }
 
   function launch(i) {
-    gameOpen = true;
+    gameOpen = true; hover = -1; cv.style.cursor = '';
     cv.style.display = 'none';
     backBtn.style.display = 'block';
     window.history.pushState({ game: true }, '');
@@ -157,6 +163,7 @@
       gameOpen = false;
       backBtn.style.display = 'none';
       cv.style.display = 'block';
+      window.focus();   // keys come back to the arcade
       if (window.history.state && window.history.state.game) { skipPop = true; window.history.back(); }
       requestAnimationFrame(draw);
     });
@@ -200,11 +207,28 @@
       pressed = -1;
     });
     cv.addEventListener('pointercancel', () => { pressed = -1; });
+    cv.addEventListener('pointermove', e => {
+      if (e.pointerType !== 'mouse') return;
+      hover = loading(performance.now()) ? -1 : cardAt(e);
+      cv.style.cursor = hover >= 0 ? 'pointer' : '';
+      if (hover >= 0) sel = -1;
+    });
+    cv.addEventListener('pointerleave', () => { hover = -1; });
+    // keyboard: arrows move around the grid, Enter / Space opens, 1-9 open a game directly
+    addEventListener('keydown', e => {
+      const n = cards.length, k = e.key;
+      if (gameOpen) { if (k === 'Escape') back(); return; }   // (normally the game itself has the keys)
+      if (loading(performance.now())) return;
+      const move = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -cols, ArrowDown: cols }[k];
+      if (move) { e.preventDefault(); sel = sel < 0 ? 0 : Math.max(0, Math.min(n - 1, sel + move)); hover = -1; }
+      else if ((k === 'Enter' || k === ' ') && sel >= 0) { e.preventDefault(); launch(sel); }
+      else if (/^[1-9]$/.test(k) && +k <= n) launch(+k - 1);
+    });
     addEventListener('resize', layout);
     layout();
     loadStart = performance.now();
     requestAnimationFrame(draw);
   }
 
-  root.PhoneLauncher = { start };
+  root.ArcadeLauncher = { start };
 })(window);

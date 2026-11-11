@@ -511,7 +511,7 @@
       return;
     }
     text('ENTER KEEP CLIMBING', cx, y + 28, C.white, 1, 'center');
-    if (inFrame) text('ESC BACK TO TERMINAL  YOUR CLIMB IS SAVED', cx, y + 38, C.dim, 1, 'center');
+    if (inFrame) text('ESC BACK TO THE ARCADE  YOUR CLIMB IS SAVED', cx, y + 38, C.dim, 1, 'center');
     text(confirmReset ? 'PRESS R AGAIN TO START AGAIN FROM THE GROUND' : 'R START AGAIN', cx, y + 48, confirmReset ? C.red : C.dim, 1, 'center');
     text(muted ? 'M SOUND IS OFF' : 'M SOUND IS ON', cx, y + 58, C.dim, 1, 'center');
   }
@@ -520,7 +520,7 @@
     text('YOU MADE IT', cx, y, C.gold, 3, 'center');
     text(`TIME ${mmss(s.t)}   FALLS ${s.falls}`, cx, lineY(y, 0), C.white, ui, 'center');
     if (bestTime) text(`BEST TIME ${mmss(bestTime)}`, cx, lineY(y, 1), C.gold, ui, 'center');
-    text(TOUCH ? 'TAP TO CLIMB AGAIN' : 'ENTER CLIMB AGAIN' + (inFrame ? '  ESC BACK TO TERMINAL' : ''), cx, lineY(y, 2) + 6, C.dim, ui, 'center');
+    text(TOUCH ? 'TAP TO CLIMB AGAIN' : 'ENTER CLIMB AGAIN' + (inFrame ? '  ESC BACK TO THE ARCADE' : ''), cx, lineY(y, 2) + 6, C.dim, ui, 'center');
   }
   function draw() {
     const z = zoneAt(LEVEL, s.y);

@@ -24,7 +24,7 @@
     $('menuhelp').textContent = 'tap to pick';
     document.querySelector('[data-mode="2p"] small').textContent = 'take turns on one phone';
     document.querySelector('#game .help').textContent = 'tap a square';
-  } else if (window.parent !== window) $('menuhelp').textContent += ' · ESC back to terminal';
+  } else if (window.parent !== window) $('menuhelp').textContent += ' · ESC back to the arcade';
   // with no Enter key, tapping anywhere once a round is over starts the next one
   game.addEventListener('click', () => { if (over && performance.now() - overAt > 350) newRound(); });
 

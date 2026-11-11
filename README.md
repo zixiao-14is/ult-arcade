@@ -1,32 +1,35 @@
-# Pulse Terminal
+# ULT Arcade
 
-A small browser game launcher dressed up as a terminal. Type a command and the game opens full screen.
+A small retro game arcade by ULT Games for the browser, phones and Android: a pixel-art screen of game cards. Tap or click a game and it opens full screen.
 
 **Play it:** https://zixiao-14is.github.io/ult-arcade/ (on an iPhone, open it in Safari, then Share → Add to Home Screen)
 **Android app:** download `ULT-Arcade.apk` from the [latest release](https://github.com/zixiao-14is/ult-arcade/releases/latest)
 
 The website updates by itself a minute or two after every push to `main`, through `.github/workflows/pages.yml`. That workflow copies just the site files: the launcher, `games/` and `icons/`, without `app/` or the Node tools.
 
-| Game | Command | What it is |
-| --- | --- | --- |
-| Pulse Runner | `/game-run --pulserunner` | Neon rhythm auto-runner with music generated live in the browser, 7 levels including the near-impossible Asian Mode |
-| Snake | `/game-run --snake` | Classic snake with a local top-10 leaderboard |
-| Tic-Tac-Toe | `/game-run --tictactoe` | 2 players on one keyboard, or a perfect minimax bot |
-| Connect 4 | `/game-run --connect4` | The classic 7×6 board game, 2 players on one keyboard |
-| Only Up | `/game-run --onlyup` | Retro climbing game with no checkpoints, about 30 minutes to the top |
-| Pebble Solitaire | `/game-run --pebble` | The classic 33-hole cross board puzzle: jump pebbles until one is left |
+| Game | What it is |
+| --- | --- |
+| Pulse Runner | Neon rhythm auto-runner with music generated live in the browser, 7 levels including the near-impossible Asian Mode |
+| Snake | Classic snake with a local top-10 leaderboard |
+| Tic-Tac-Toe | 2 players on one keyboard, or a perfect minimax bot |
+| Connect 4 | The classic 7×6 board game, 2 players on one keyboard |
+| Only Up | Retro climbing game with no checkpoints, about 30 minutes to the top |
+| Pebble Solitaire | The classic 33-hole cross board puzzle: jump pebbles until one is left |
 
 Plain HTML, CSS and JavaScript. No build step, no dependencies, nothing to install. It runs straight from disk or a USB stick.
 
-On a phone there's no terminal. You get **ULT Arcade** by ULT Games instead: a short pixel-art loading screen, then a low-res screen of game cards to tap, and every game has touch controls. It also comes as an Android app, and it can be added to an iPhone home screen. See [Phones](#phones).
+Every game has keyboard and touch controls. The arcade also comes as an Android app, and it can be added to an iPhone home screen. See [Phones](#phones).
 
 ## Quick start
 
-Open `index.html` in a modern browser (Chrome, Edge, Firefox or Safari), then type a command from the table above, for example:
+Open `index.html` in a modern browser (Chrome, Edge, Firefox or Safari). After a short "ULT ARCADE" loading screen you get the game cards:
 
-```
-/game-run --snake
-```
+| Input | Action |
+| --- | --- |
+| Tap or click a card | Play that game |
+| `←` `→` `↑` `↓` then `Enter` (or `Space`) | Pick a card with the keyboard |
+| `1`–`6` | Open a game directly |
+| `Esc` on a game's main menu, or the ← button top left | Back to the arcade |
 
 Every game also works on its own: open its `index.html` inside `games/` directly.
 
@@ -34,8 +37,8 @@ Every game also works on its own: open its `index.html` inside `games/` directly
 
 ```
 .
-├── index.html                 The terminal: command parser + GAMES registry, opens games in an <iframe>
-├── launcher.js                The phone launcher (ULT Arcade) and its loading screen, shown instead of the terminal on phones
+├── index.html                 The arcade page: GAMES list, opens games in an <iframe>
+├── launcher.js                The arcade itself (ArcadeLauncher): loading screen, game cards, back button
 ├── manifest.webmanifest       Lets phones add the games to the home screen
 ├── sw.js                      Offline support for the home-screen version
 ├── icons/                     App icons (made by app/scripts/make-icons.js)
@@ -71,21 +74,7 @@ Every game also works on its own: open its `index.html` inside `games/` directly
         └── pebble.js          Canvas drawing, input, menu
 ```
 
-Each game lives in its own folder with everything it needs (HTML, scripts, styles, any assets). `/game-run` loads that folder's `index.html` into a full-screen `<iframe>` on top of the terminal. When you press **Esc** on a game's main menu, the game sends `postMessage('exit-game')` and the terminal closes the iframe and gives you the prompt back.
-
-## The terminal
-
-Commands start with `/`:
-
-| Command | What it does |
-| --- | --- |
-| `/help` | List commands |
-| `/game-library --all` | List every game |
-| `/game-library <search>` | Search game names, descriptions and tags |
-| `/game-run --<id>` | Launch a game (aliases work too, e.g. `--pulse`) |
-| `/clear` | Clear the screen (also `Ctrl+L`) |
-
-The up and down arrows step through command history.
+Each game lives in its own folder with everything it needs (HTML, scripts, styles, any assets). Opening a card loads that folder's `index.html` into a full-screen `<iframe>` on top of the arcade. When you press **Esc** on a game's main menu (or the back button), the game sends `postMessage('exit-game')` and the arcade closes the iframe and shows the cards again.
 
 ## Pulse Runner
 
@@ -101,7 +90,7 @@ You're a glowing cube that runs forward on its own. Time your jumps to the beat 
 | `P` (menu) | Toggle practice mode |
 | `B` (menu) | Toggle the bot: pick a level and watch it play a perfect run |
 | `P` (during a run) | Pause. While paused, drag, scroll the mouse wheel or use `←` `→` (`Shift` = faster, `Home` / `End` = start / finish) to look through the whole level. `P` again to carry on |
-| `Esc` | Back to the menu, or back to the terminal from the menu |
+| `Esc` | Back to the menu, or back to the arcade from the menu |
 
 ### Levels
 
@@ -188,7 +177,7 @@ The classic. Eat apples to grow, and don't run into your own tail. There are no 
 | `P` / `Space` | Pause |
 | `L` | Leaderboard (from the menu or the game-over screen) |
 | `C` twice | Clear the leaderboard (on the leaderboard screen) |
-| `Esc` | Back to the menu, or back to the terminal from the menu |
+| `Esc` | Back to the menu, or back to the arcade from the menu |
 
 ### Leaderboard
 
@@ -210,7 +199,7 @@ Get three in a row. Pick a mode from the menu:
 | Arrow keys / `W A S D` then `Enter` | Move the highlight and place |
 | `Enter` | Next round, once a round is over |
 | `R` | Restart the round |
-| `Esc` | Back to the menu, or back to the terminal from the menu |
+| `Esc` | Back to the menu, or back to the arcade from the menu |
 
 The score (X wins, draws, O wins) is kept until you go back to the menu.
 
@@ -236,7 +225,7 @@ The classic board game for 2 players on one keyboard. Take turns dropping discs 
 | `← →` or `A D` then `Enter`, `Space`, `↓` or `S` | Pick a column and drop |
 | `Enter` / `Space` / click | Start, or next round once a round is over |
 | `R` | Restart the round |
-| `Esc` | Back to the menu, or back to the terminal from the menu |
+| `Esc` | Back to the menu, or back to the arcade from the menu |
 
 The score (red wins, draws, yellow wins) is kept until you go back to the menu.
 
@@ -248,7 +237,7 @@ The only point of the game is to go up. There's no menu and no difficulty settin
 | --- | --- |
 | `←` `→` or `A` `D`, or hold the on-screen arrow buttons | Move |
 | `Space`, `↑` or `W`, or tap the JUMP button or anywhere else on the screen | Jump (hold to go higher, tap for a short hop) |
-| `Esc` or `P` | Pause (`Esc` again goes back to the terminal) |
+| `Esc` or `P` | Pause (`Esc` again goes back to the arcade) |
 | `R` twice, while paused | Start again from the ground |
 | `M` | Sound on or off |
 | `F` | Browser fullscreen on or off |
@@ -298,7 +287,7 @@ The classic one-player puzzle, also known as peg solitaire. The 33-hole cross bo
 | Arrow keys / `W A S D` then `Enter` / `Space` | Move the highlight, pick a pebble, then pick where it lands |
 | `U` or the UNDO button | Take back a jump, as many as you like |
 | `R` or the RESTART button | Start again |
-| `Esc` or the MENU button | Put the pebble down, or back to the menu (your game is kept). `Esc` on the menu goes back to the terminal |
+| `Esc` or the MENU button | Put the pebble down, or back to the menu (your game is kept). `Esc` on the menu goes back to the arcade |
 
 Your best result is saved in `localStorage` under `pebble:best`.
 
@@ -347,19 +336,17 @@ node games/pulse-runner/make-bot.js
 ## Adding a new game
 
 1. Make a folder for it, for example `games/my-game/`, with an `index.html` and whatever scripts, styles and assets it needs. Use relative paths inside the folder.
-2. To let **Esc** return to the terminal, send this from the game (usually on its main menu):
+2. To let **Esc** return to the arcade, send this from the game (usually on its main menu):
    ```js
    if (window.parent !== window) window.parent.postMessage('exit-game', '*');
    ```
 3. Register it in the `GAMES` array at the top of the script in `index.html`:
    ```js
-   { id: 'mygame', alias: ['my-game'], name: 'My Game', file: 'games/my-game/index.html',
-     tags: 'puzzle casual', desc: 'One-line description shown in /game-library.' },
+   { id: 'mygame', name: 'My Game', file: 'games/my-game/index.html', desc: 'One line about it.' },
    ```
+   Its card appears in the arcade in that position.
 
-It can then be launched with `/game-run --mygame`.
-
-For phones, also:
+Then:
 
 4. Add touch controls, and since phones have no Esc key, handle it the same way: the back button sends the game an `Escape` keydown.
 5. Give it a card picture in `CARDS` in `launcher.js` (24×24 pixels drawn with rectangles). Without one, the card shows just the name.
@@ -368,9 +355,9 @@ For phones, also:
 
 ## Phones
 
-When the page opens on a phone (a touch screen under 820 px on its short side), or inside the Android app, `index.html` shows the ULT Arcade launcher instead of the terminal: a "ULT ARCADE, BY ULT GAMES" loading screen for about 2 seconds, then the game cards. Tap a game to play it. To see it on a computer, add `?phone` to the address, for example `index.html?phone`.
+Phones get the same arcade as computers: a "ULT ARCADE, BY ULT GAMES" loading screen for about 2 seconds, then the game cards. Tap a game to play it.
 
-Phones have no Esc key, so a back button sits in the top-left corner while a game is open. It does whatever Esc does in that game: pause, go back to the game's menu, or go back to the launcher. The phone's own back gesture does the same.
+Phones have no Esc key, so a back button sits in the top-left corner while a game is open (on computers too). It does whatever Esc does in that game: pause, go back to the game's menu, or go back to the arcade. The phone's own back gesture, or the browser's back button, does the same.
 
 | Game | Touch controls |
 | --- | --- |

@@ -278,7 +278,7 @@
     } else {
       text('ENTER / SPACE  start', W / 2, H * 0.6, 18, C.text);
       text('L  leaderboard', W / 2, H * 0.6 + 30, 18, C.acc);
-      text('ARROWS / WASD move · P pause' + (window.parent !== window ? ' · ESC back to terminal' : ''), W / 2, H * 0.6 + 72, 13, C.dim);
+      text('ARROWS / WASD move · P pause' + (window.parent !== window ? ' · ESC back to the arcade' : ''), W / 2, H * 0.6 + 72, 13, C.dim);
     }
     const top = board.list()[0];
     if (top) text(`TOP: ${top.name}  ${top.score}`, W / 2, H * 0.9, 16, C.gold);

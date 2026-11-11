@@ -30,7 +30,7 @@
 <script src="bot.js"></script>
 <script src="game.js"></script>
 <script>
-  // Esc on the menu: hand control back to the terminal, or reopen the menu when played on its own.
+  // Esc on the menu: hand control back to the arcade, or reopen the menu when played on its own.
   function exit() {
     if (window.parent !== window) window.parent.postMessage('exit-game', '*');
     else PulseRunner.open(exit);
