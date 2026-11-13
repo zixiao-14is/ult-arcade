@@ -18,10 +18,17 @@ module.exports = async (req, res) => {
       const [raw] = await redis(['GET', 'ult:v:' + id]);
       v = raw ? JSON.parse(raw) : null;
     } else {
+      // a new visitor. The arcade makes its own token (so a reload mid-answer keeps the same one); older copies don't.
       if (await tooMany(req, 'new', 30, 3600)) return send(res, 429, { error: 'too many new visitors from here, try later' });
-      token = crypto.randomBytes(24).toString('base64url');
+      token = token || crypto.randomBytes(24).toString('base64url');
       [id] = await redis(['INCR', 'ult:count']);
-      await redis(['SET', 'ult:tok:' + sha(token), String(id)]);
+      // NX: only if no other request with this token got there first (two at once); then use that one's number
+      const [ok] = await redis(['SET', 'ult:tok:' + sha(token), String(id), 'NX']);
+      if (ok !== 'OK') {
+        [id] = await redis(['GET', 'ult:tok:' + sha(token)]);
+        const [raw] = await redis(['GET', 'ult:v:' + id]);
+        v = raw ? JSON.parse(raw) : null;
+      }
     }
     v = v || { id: +id, first: now, visits: 0, stats: null };
     if (!v.last || now - v.last > 30 * 60e3) v.visits++;   // back after more than half an hour: a new visit

@@ -19,7 +19,7 @@ const mem = new Map();
 function memCmd([cmd, k, ...a]) {
   switch (cmd.toUpperCase()) {
     case 'GET': return mem.has(k) ? mem.get(k) : null;
-    case 'SET': mem.set(k, String(a[0])); return 'OK';
+    case 'SET': if (a[1] === 'NX' && mem.has(k)) return null; mem.set(k, String(a[0])); return 'OK';
     case 'INCR': { const n = (+mem.get(k) || 0) + 1; mem.set(k, String(n)); return n; }
     case 'MGET': return [k, ...a].map(x => mem.has(x) ? mem.get(x) : null);
     case 'EXPIRE': return 1;
@@ -48,7 +48,9 @@ const LIVE = `(exp is null or exp > now())`;
 function neonSql([cmd, k, ...a]) {
   switch (cmd.toUpperCase()) {
     case 'GET': return { query: `select v from ${TABLE} where k = $1 and ${LIVE}`, params: [k] };
-    case 'SET': return { query: `insert into ${TABLE} (k, v) values ($1, $2) on conflict (k) do update set v = excluded.v, exp = null`, params: [k, String(a[0])] };
+    case 'SET': return a[1] === 'NX'   // NX: only if the key isn't there yet (or has run out)
+      ? { query: `insert into ${TABLE} as t (k, v) values ($1, $2) on conflict (k) do update set v = excluded.v, exp = null where t.exp <= now() returning 1`, params: [k, String(a[0])] }
+      : { query: `insert into ${TABLE} (k, v) values ($1, $2) on conflict (k) do update set v = excluded.v, exp = null`, params: [k, String(a[0])] };
     // like Redis: a key that has run out starts again from 1, with no time limit
     case 'INCR': return { query: `insert into ${TABLE} as t (k, v) values ($1, '1') on conflict (k) do update set
         v = case when t.exp <= now() then '1' else (t.v::bigint + 1)::text end,
@@ -79,7 +81,7 @@ async function neon(cmds) {
     const rows = results[i].rows;
     switch (cmd.toUpperCase()) {
       case 'GET': return rows.length ? rows[0][0] : null;
-      case 'SET': return 'OK';
+      case 'SET': return keys[2] === 'NX' && !rows.length ? null : 'OK';
       case 'INCR': return Number(rows[0][0]);
       case 'EXPIRE': return results[i].rowCount ? 1 : 0;
       case 'MGET': { const m = new Map(rows.map(([k, v]) => [k, v])); return keys.map(k => m.has(k) ? m.get(k) : null); }

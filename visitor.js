@@ -17,9 +17,10 @@
     if (!mark) {
       mark = document.createElement('div');
       mark.setAttribute('aria-hidden', 'true');
-      mark.style.cssText = 'position:fixed;z-index:30;pointer-events:none;right:calc(6px + env(safe-area-inset-right));' +
-        'bottom:calc(5px + env(safe-area-inset-bottom));font:bold 11px/1 Consolas,Menlo,monospace;letter-spacing:1px;' +
-        'color:rgba(255,255,255,.32);text-shadow:0 1px 0 rgba(0,0,0,.8)';
+      mark.style.cssText = 'position:fixed;z-index:30;pointer-events:none;right:calc(8px + env(safe-area-inset-right));' +
+        'bottom:calc(8px + env(safe-area-inset-bottom));font:bold 13px/1 Consolas,Menlo,monospace;letter-spacing:1px;' +
+        'padding:4px 7px;border-radius:5px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.18);' +
+        'color:rgba(255,255,255,.62);text-shadow:0 1px 0 rgba(0,0,0,.8)';
       document.body.appendChild(mark);
     }
     mark.textContent = 'ULT #' + String(me.id).padStart(6, '0');
@@ -70,9 +71,19 @@
   }
   function closed() { addTime(); open = null; send(true); }
 
+  // The secret token is made here and saved before the server is asked, so reloading the page while it is still
+  // answering (a sleeping database can take a few seconds to wake up) sends the same token again: same number.
+  function newToken() {
+    try {
+      const b = crypto.getRandomValues(new Uint8Array(24));
+      return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    } catch { return null; }   // very old browser: the server makes one instead
+  }
+
   async function start() {
     watermark();
     if (!ONLINE) return;
+    if (!me || !me.token) { const t = newToken(); if (t) { me = { token: t }; set('ult:visitor', me); } }
     const r = await post('/api/visit', { token: me && me.token, device: collect().device });
     if (r && r.id && r.token) { me = { id: r.id, token: r.token }; set('ult:visitor', me); watermark(); send(true); }
     addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { addTime(); send(true, true); } });
