@@ -106,9 +106,27 @@ const PulseRunner = (() => {
   };
 
   // ---------- input ----------
-  let held = false, pressed = false;
-  function press() { if (!held) pressed = true; held = true; Music.init(); }
-  function release() { if (!botPlaying()) held = false; }   // while the bot plays, the button is its
+  // Presses and releases are kept with the moment they happened and applied at the physics tick (1/240 s) they fall
+  // in, not at the next screen frame. So a press counts to within about 4 ms on any screen: a 60 Hz screen only
+  // draws every 4 ticks, and Asian Mode's windows are just 2 ticks wide.
+  let held = false, pressed = false, inputs = [];
+  const when = e => (e && e.timeStamp > 0 && Math.abs(e.timeStamp - performance.now()) < 1000) ? e.timeStamp : performance.now();
+  function queue(down, e) {
+    const at = when(e);
+    let i = inputs.length;
+    while (i > 0 && inputs[i - 1].at > at) i--;
+    inputs.splice(i, 0, { at, down });
+  }
+  // apply what happened up to time `upTo`; a press always gets at least one tick of its own, even a very quick tap
+  function applyInputs(upTo) {
+    while (inputs.length && inputs[0].at <= upTo) {
+      const down = inputs.shift().down;
+      if (down && !held) { held = true; pressed = true; return; }
+      held = down;
+    }
+  }
+  function press(e) { queue(true, e); Music.init(); }
+  function release(e) { if (!botPlaying()) queue(false, e); }   // while the bot plays, the button is its
   const JUMP_KEYS = [' ', 'ArrowUp', 'w', 'W'];
   const COLS = 3;
   addEventListener('keydown', e => {
@@ -123,7 +141,7 @@ const PulseRunner = (() => {
       if (k === 'End') viewX = lv.end;
       clampView(); e.preventDefault(); return;
     }
-    if (JUMP_KEYS.includes(e.key)) { e.preventDefault(); if (!e.repeat) { if (!botPlaying()) press(); onAction(); } }
+    if (JUMP_KEYS.includes(e.key)) { e.preventDefault(); if (!e.repeat) { if (!botPlaying()) press(e); onAction(); } }
     if (scene === 'menu') {
       const n = LEVELS.length;
       if (e.key >= '1' && e.key <= String(n)) startLevel(+e.key - 1);
@@ -136,17 +154,17 @@ const PulseRunner = (() => {
       if (e.key === 'Enter') startLevel(sel);
     }
   });
-  addEventListener('keyup', e => { if (active && JUMP_KEYS.includes(e.key)) release(); });
+  addEventListener('keyup', e => { if (active && JUMP_KEYS.includes(e.key)) release(e); });
   cv.addEventListener('pointerdown', e => {
     if (paused) { drag = { x: e.clientX, v: viewX }; return; }   // paused: drag to look through the level
-    if (!botPlaying()) press();
+    if (!botPlaying()) press(e);
     onAction(); onPointer(e.clientX, e.clientY);
   });
   cv.addEventListener('pointermove', e => { if (drag) { viewX = drag.v - (e.clientX - drag.x) / T; clampView(); } });
   cv.addEventListener('wheel', e => { if (paused) { e.preventDefault(); viewX += (e.deltaY + e.deltaX) / T; clampView(); } }, { passive: false });
-  addEventListener('pointerup', () => { drag = null; release(); });
-  addEventListener('pointercancel', release);
-  addEventListener('blur', release);
+  addEventListener('pointerup', e => { drag = null; release(e); });
+  addEventListener('pointercancel', e => release(e));
+  addEventListener('blur', () => release());
 
   // ---------- game state ----------
   let scene = 'menu', sel = 0, practice = false;
@@ -161,20 +179,38 @@ const PulseRunner = (() => {
   function togglePause() {
     if (s.dead || s.won) return;
     paused = !paused; drag = null;
-    if (paused) { viewX = camX; if (!botPlaying()) held = false; if (Music.ctx) Music.ctx.suspend(); }   // the bot keeps its button
+    if (paused) { viewX = camX; if (!botPlaying()) { held = false; inputs = []; } if (Music.ctx) Music.ctx.suspend(); }   // the bot keeps its button
     else if (Music.ctx) Music.ctx.resume();
   }
   function unpause() { if (paused) { paused = false; drag = null; if (Music.ctx) Music.ctx.resume(); } }
   function clampView() { viewX = Math.max(-10, Math.min(lv.end - (W / T) * 0.5, viewX)); }
   const loadBest = k => { const a = store.get(k, []); return LEVELS.map((_, i) => a[i] || 0); };
-  const best = loadBest('best'), bestPractice = loadBest('bestP');
+  const best = loadBest('best'), bestPractice = loadBest('bestP'), tries = loadBest('tries');   // tries: attempts per level
+
+  // Cheats, switched on from the admin page (/admin) for this device only. While any is on, nothing is saved as a best.
+  //   god: spikes and walls can't kill you.   start: begin each level at this % (reached by playing the bot's run).
+  const cheats = (() => { try { return JSON.parse(localStorage.getItem('ult:cheats')) || {}; } catch { return {}; } })();
+  const cheating = !!(cheats.god || cheats.start > 0);
+  let ghost = null;   // the level with only its portals: where an invincible player goes when they would have died
+  const ghostOf = l => (ghost && ghost.src === l) ? ghost.lv : (ghost = { src: l, lv: { ...l, objs: l.objs.filter(o => o.t === 'portal'), maxW: 1 } }).lv;
+  function skipAhead() {
+    const plan = botPlan(), to = lv.end * Math.min(99, cheats.start) / 100;
+    if (!plan) return;
+    let i = 0, h = false;
+    for (let k = 0; s.x < to && !s.dead && !s.won && k < 1e7; k++) {
+      while (i < plan.length && plan[i] <= k) { h = i % 2 === 0; i++; }
+      step(s, lv, DT, h, false);
+    }
+    if (s.dead || s.won) s = newState();
+  }
 
   function startLevel(i) {
-    sel = i; lv = LEVELS[i]; attempts = 0; checkpoints = []; held = false; unpause();
+    sel = i; lv = LEVELS[i]; attempts = 0; checkpoints = []; held = false; inputs = []; unpause();
     scene = 'play'; respawn(true);
   }
   function respawn(fresh) {
     attempts++;
+    if (!botPlaying()) { tries[sel]++; store.set('tries', tries); }
     particles = []; trail = []; deadTimer = 0; cpTimer = 0;
     botTick = 0; botNext = 0;
     if (botPlaying()) { held = false; pressed = false; }
@@ -182,6 +218,7 @@ const PulseRunner = (() => {
       s = cloneState(checkpoints[checkpoints.length - 1]);
     } else {
       s = newState(); checkpoints = [];
+      if (cheats.start > 0 && !botPlaying()) skipAhead();
       Music.start(lv.music);
     }
     rot = 0;
@@ -203,7 +240,7 @@ const PulseRunner = (() => {
     if (!practice) Music.stop();
     const pct = Math.min(100, Math.floor(s.x / lv.end * 100));
     const arr = practice ? bestPractice : best;
-    if (pct > arr[sel] && !botPlaying()) { arr[sel] = pct; store.set(practice ? 'bestP' : 'best', arr); }
+    if (pct > arr[sel] && !botPlaying() && !cheating) { arr[sel] = pct; store.set(practice ? 'bestP' : 'best', arr); }
     const cx = s.x + 0.5, cy = s.y + 0.5;
     for (let i = 0; i < 40; i++) {
       const a = Math.random() * Math.PI * 2, v = 2 + Math.random() * 9;
@@ -215,7 +252,7 @@ const PulseRunner = (() => {
     Music.stop(); Music.sfx('win');
     const arr = practice ? bestPractice : best;
     botWon = botPlaying();   // (before the scene changes: botPlaying() only counts during play)
-    if (!botWon) { arr[sel] = 100; store.set(practice ? 'bestP' : 'best', arr); }
+    if (!botWon && !cheating) { arr[sel] = 100; store.set(practice ? 'bestP' : 'best', arr); }
     scene = 'win'; winTimer = 0;
   }
 
@@ -225,9 +262,10 @@ const PulseRunner = (() => {
   function frame(now) {
     if (!active) return;
     const real = paused ? 0 : Math.min(0.1, (now - last) / 1000); last = now;   // paused: everything holds still
-    if (scene === 'play' && paused) { /* looking around */ }
+    if (scene === 'play' && paused) { inputs = []; }   // looking around
     else if (scene === 'play') {
       if (s.dead) {
+        applyInputs(now); pressed = false;
         deadTimer += real;
         if (deadTimer > 0.9) respawn(false);
       } else {
@@ -236,8 +274,11 @@ const PulseRunner = (() => {
           if (botPlaying()) {   // the bot's button for this tick
             const plan = botPlan(); pressed = false;
             while (botNext < plan.length && plan[botNext] <= botTick) { held = botNext % 2 === 0; if (held) pressed = true; botNext++; }
-          }
-          step(s, lv, DT, held, pressed); pressed = false; acc -= DT; botTick++;
+          } else applyInputs(now - (acc - DT) * 1000);   // everything that happened before this tick ends
+          const before = cheats.god && !botPlaying() ? cloneState(s) : null;
+          step(s, lv, DT, held, pressed);
+          if (s.dead && before) { s = before; step(s, ghostOf(lv), DT, held, pressed); }   // invincible: carry on through it
+          pressed = false; acc -= DT; botTick++;
           if (s.dead) die();
         }
         if (s.won) win();
@@ -251,7 +292,7 @@ const PulseRunner = (() => {
         } else rot = -Math.atan2(s.vy, lv.speed) * 180 / Math.PI;
         if (s.mode === 'ship' || !s.ground) trail.push({ x: s.x + 0.5, y: s.y + 0.5, life: 0.3 });
       }
-    } else { acc = 0; pressed = false; }
+    } else { acc = 0; applyInputs(Infinity); pressed = false; }
     if (scene === 'win') winTimer += real;
     for (const p of particles) { p.x += p.vx * real; p.y += p.vy * real; p.vy -= 12 * real; p.life -= real; }
     particles = particles.filter(p => p.life > 0);
@@ -311,11 +352,16 @@ const PulseRunner = (() => {
     g.shadowBlur = 0;
 
     const minX = camX - 3, maxX = camX + W / T + 3, time = performance.now() / 1000;
-    for (let i = 0; i < lv.objs.length; i++) {
+    // objects are sorted by x: start at the first one that can be on screen (Asian Mode has about 40,000)
+    let first = 0, last = lv.objs.length;
+    while (first < last) { const m = (first + last) >> 1; if (lv.objs[m].x < minX - lv.maxW) first = m + 1; else last = m; }
+    for (let i = first; i < lv.objs.length && lv.objs[i].x <= maxX; i++) {
       const o = lv.objs[i];
-      if (o.x + (o.w || 1) < minX || o.x > maxX) continue;
+      if (o.x + (o.w || 1) < minX) continue;
       const X = sx(o.x), Y = sy(o.y);
-      if (o.t === 'block') {
+      if (o.t === 'fill') {   // the solid wall behind a spike (only to look at: the spike is what you hit)
+        g.fillStyle = 'rgba(5,8,20,0.92)'; g.fillRect(X - 0.5, sy(o.y + o.h), T + 1, o.h * T);
+      } else if (o.t === 'block') {
         const top = sy(o.y + o.h), w = o.w * T, h = o.h * T;
         g.fillStyle = 'rgba(5,8,20,0.92)'; g.fillRect(X, top, w, h);
         g.strokeStyle = lv.color; g.globalAlpha = 0.25; g.lineWidth = 1;
@@ -341,7 +387,7 @@ const PulseRunner = (() => {
         g.beginPath(); g.arc(sx(o.x), sy(o.y), T * (0.42 + Math.sin(time * 6) * 0.04), 0, Math.PI * 2); g.stroke();
         g.fillStyle = used ? '#331a33' : '#ffd6fb'; g.beginPath(); g.arc(sx(o.x), sy(o.y), T * 0.16, 0, Math.PI * 2); g.fill();
         g.shadowBlur = 0;
-      } else if (o.t === 'portal') {
+      } else if (o.t === 'portal' && !lv.hidePortals) {   // Asian Mode hides them: the mode changes are a surprise
         const c = { ship: '#ff3df2', cube: '#5aff7d', flip: '#ffd23d', norm: '#3db8ff' }[o.k];
         glow(c, 22); g.strokeStyle = c; g.lineWidth = 4;
         g.beginPath(); g.ellipse(sx(o.x), sy(o.y), T * 0.45, T * 1.6, 0, 0, Math.PI * 2); g.stroke();
@@ -414,6 +460,7 @@ const PulseRunner = (() => {
     if (!TOUCH) g.fillText('ESC menu', 14, 22);
     if (practice && !botPlaying()) { g.fillStyle = '#5aff7d'; g.fillText('PRACTICE', TOUCH ? 50 : 14, TOUCH ? 26 : 42); }
     if (botPlaying()) { g.fillStyle = '#ffd23d'; g.fillText('BOT PLAYING', TOUCH ? 50 : 14, TOUCH ? 26 : 42); }
+    else if (cheating) { g.fillStyle = '#ff5ad1'; g.fillText('CHEATS ON', TOUCH ? 50 : 14, TOUCH ? 26 : 42); }
     if (!TOUCH && !paused) { g.fillStyle = 'rgba(255,255,255,0.45)'; g.textAlign = 'right'; g.fillText('P pause', W - 14, 22); g.textAlign = 'left'; }
     if (paused) drawPauseOverlay();
     // attempt counter floats in the world near the start
@@ -430,7 +477,7 @@ const PulseRunner = (() => {
     g.fillStyle = 'rgba(0,0,0,0.75)'; g.fillRect(0, y0, W, bh);
     const mx = 16, mw = W - 32, my = y0 + 34, toX = x => mx + Math.max(0, Math.min(1, x / lv.end)) * mw;
     g.fillStyle = 'rgba(255,255,255,0.15)'; g.fillRect(mx, my, mw, 10);
-    for (const o of lv.objs) if (o.t === 'portal') {   // mode changes, coloured like their portals
+    if (!lv.hidePortals) for (const o of lv.objs) if (o.t === 'portal') {   // mode changes, coloured like their portals
       g.fillStyle = { ship: '#ff3df2', cube: '#5aff7d', flip: '#ffd23d', norm: '#3db8ff' }[o.k]; g.fillRect(toX(o.x) - 1, my - 3, 2, 16);
     }
     const a = toX(viewX), b = toX(viewX + W / T);

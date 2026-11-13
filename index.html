@@ -36,12 +36,13 @@
 <iframe id="game" title="game" allow="autoplay; fullscreen"></iframe>
 
 <script src="launcher.js"></script>
+<script src="visitor.js"></script>
 <script>
 // The games, in the order the arcade shows them. file is the game's page inside games/;
 // id picks the card's picture and colour in launcher.js (CARDS).
 const GAMES = [
   { id: 'pulserunner', name: 'Pulse Runner', file: 'games/pulse-runner/index.html',
-    desc: 'Rhythm auto-runner. Jump spikes, fly, flip gravity. 7 levels, the last one (Asian Mode) near impossible.' },
+    desc: 'Rhythm auto-runner. Jump spikes, fly, flip gravity. 7 levels; the last, Asian Mode, is 17 minutes and only a bot can beat it.' },
   { id: 'snake', name: 'Snake', file: 'games/snake/index.html',
     desc: 'Classic snake with a local top-10 leaderboard.' },
   { id: 'tictactoe', name: 'Tic-Tac-Toe', file: 'games/tic-tac-toe/index.html',
@@ -59,6 +60,7 @@ const frame = document.getElementById('game');
 let onGameClosed = null;
 function openGame(g, done) {
   onGameClosed = done;
+  Visitor.opened(g.id);
   frame.src = g.file;
   frame.style.display = 'block';
   frame.onload = () => { try { frame.contentWindow.focus(); } catch {} };
@@ -70,6 +72,7 @@ function closeGame() {
   frame.onload = null;
   frame.src = 'about:blank';   // unload it so its music and timers stop
   try { window.AndroidVolumeKeys && AndroidVolumeKeys.setActive(false); } catch {}   // Android app: volume buttons back to volume
+  Visitor.closed();
   const cb = onGameClosed; onGameClosed = null; cb();
 }
 addEventListener('message', e => { if (e.data === 'exit-game' && e.source === frame.contentWindow) closeGame(); });
@@ -78,6 +81,7 @@ addEventListener('message', e => { if (e.data === 'exit-game' && e.source === fr
 if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !window.Capacitor) navigator.serviceWorker.register('sw.js').catch(() => {});
 
 ArcadeLauncher.start({ games: GAMES, open: openGame, close: closeGame, frame });
+Visitor.start();   // visitor number in the corner, stats for the admin page
 </script>
 </body>
 </html>

@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>ULT Arcade Admin</title>
+<style>
+  :root { --bg: #0b0b1a; --card: #16162c; --edge: #2e2e58; --text: #e6e6e6; --dim: #8a8aaa; --acc: #7fd7ff; --gold: #ffd76a; --bad: #ff7b7b; --ok: #9fe89f; --pink: #ff5ad1; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 Consolas, "Cascadia Mono", Menlo, monospace; }
+  main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; color: var(--acc); letter-spacing: 2px; }
+  h2 { font-size: 15px; margin: 0 0 12px; color: var(--gold); letter-spacing: 1px; }
+  .sub { color: var(--dim); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--edge); padding: 16px; margin-bottom: 16px; }
+  label { display: block; color: var(--dim); margin: 10px 0 4px; }
+  input[type=text], input[type=password], input[type=number] { width: 100%; max-width: 320px; padding: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--edge); font: inherit; }
+  input:focus, button:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
+  button { padding: 8px 14px; margin: 12px 8px 0 0; background: var(--edge); color: var(--text); border: 1px solid #44447a; font: inherit; cursor: pointer; }
+  button:hover { background: #3a3a6e; }
+  button.primary { background: var(--acc); color: #04121c; border-color: var(--acc); font-weight: bold; }
+  .err { color: var(--bad); min-height: 1.4em; margin-top: 8px; }
+  .note { color: var(--dim); font-size: 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .stats { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+  .stat { border: 1px solid var(--edge); padding: 8px 12px; min-width: 120px; }
+  .stat b { display: block; font-size: 20px; color: var(--acc); }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--edge); }
+  table { border-collapse: collapse; width: 100%; min-width: 980px; }
+  th, td { padding: 7px 9px; border-bottom: 1px solid var(--edge); text-align: left; vertical-align: top; white-space: nowrap; }
+  th { color: var(--dim); font-weight: normal; position: sticky; top: 0; background: var(--card); cursor: pointer; user-select: none; }
+  tr.v:hover td { background: #1c1c38; cursor: pointer; }
+  td.num { text-align: right; }
+  .lv { display: inline-block; min-width: 30px; text-align: right; color: var(--dim); }
+  .lv.full { color: var(--ok); } .lv.asian { color: var(--bad); font-weight: bold; }
+  .on { color: var(--ok); } .cheat { color: var(--pink); }
+  pre { margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--dim); font-size: 12px; }
+  .hidden { display: none; }
+  @media (max-width: 600px) { main { padding: 14px 16px 40px; } h1 { font-size: 18px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>ULT ARCADE · ADMIN</h1>
+  <p class="sub">Visitors, their stats, and cheats for this device.</p>
+
+  <section id="login" class="card hidden">
+    <h2>LOG IN</h2>
+    <form id="loginForm" autocomplete="on">
+      <label for="user">Username</label>
+      <input id="user" type="text" autocomplete="username" required>
+      <label for="pass">Password</label>
+      <input id="pass" type="password" autocomplete="current-password" required>
+      <div><button class="primary" type="submit">Log in</button></div>
+      <div class="err" id="loginErr" role="alert"></div>
+    </form>
+  </section>
+
+  <div id="admin" class="hidden">
+    <section class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0">VISITORS</h2>
+        <div><button id="refresh">Refresh</button><button id="logout">Log out</button></div>
+      </div>
+      <div class="err" id="dataErr" role="alert"></div>
+      <div class="stats" id="summary"></div>
+      <div class="tablewrap"><table>
+        <thead><tr>
+          <th data-k="id">Visitor</th><th data-k="device">Device</th><th data-k="first">First seen</th><th data-k="last">Last seen</th>
+          <th data-k="visits">Visits</th><th data-k="time">Time played</th><th data-k="pulse">Pulse Runner best % (levels 1–7)</th>
+          <th data-k="tries">Tries</th><th data-k="snake">Snake</th><th data-k="onlyup">Only Up</th><th data-k="pebble">Pebble</th><th data-k="cheats">Cheats</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+      <p class="note">Click a visitor for everything they sent. Click a column title to sort.</p>
+    </section>
+
+    <section class="card">
+      <h2>CHEATS (THIS DEVICE ONLY)</h2>
+      <p class="note">These change only the browser you're using now. While Invincible or Start at is on, Pulse Runner shows CHEATS ON and saves no best scores.</p>
+      <label><input type="checkbox" id="god"> Invincible in Pulse Runner: spikes and walls can't kill you</label>
+      <label for="start">Start every Pulse Runner level at this % (0 = the beginning)</label>
+      <input id="start" type="number" min="0" max="99" step="1" value="0">
+      <div>
+        <button class="primary" id="saveCheats">Save cheats</button>
+        <button id="unlock">Set all Pulse Runner levels to 100%</button>
+        <button id="reset">Reset all my scores</button>
+      </div>
+      <div class="note" id="cheatMsg" role="status"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const LEVELS = ['Neon Drift', 'Skyline Steps', 'Static Bloom', 'Pulse Cascade', 'Overclock', 'Hyperdrive', 'Asian Mode'];
+  let visitors = [], now = Date.now(), sortKey = 'last', sortDir = -1, openId = null;
+
+  const ago = t => {
+    if (!t) return '–';
+    const s = Math.max(0, (now - t) / 1000);
+    return s < 90 ? 'just now' : s < 3600 ? Math.round(s / 60) + ' min ago' : s < 86400 ? Math.round(s / 3600) + ' h ago' : Math.round(s / 86400) + ' days ago';
+  };
+  const dur = s => { s = Math.round(s || 0); return s < 60 ? s + ' s' : s < 3600 ? Math.round(s / 60) + ' min' : (s / 3600).toFixed(1) + ' h'; };
+  const clock = s => { s = Math.round(s || 0); return s ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : '–'; };
+  const num = id => 'ULT #' + String(id).padStart(6, '0');
+  const st = v => v.stats || {};
+  const played = v => Object.values(st(v).play || {}).reduce((a, p) => a + (+p.seconds || 0), 0);
+  const tries = v => ((st(v).pulse || {}).tries || []).reduce((a, n) => a + (+n || 0), 0);
+  const pulseSum = v => ((st(v).pulse || {}).best || []).reduce((a, n) => a + (+n || 0), 0);
+  const hasCheats = v => { const c = st(v).cheats; return !!(c && (c.god || c.start > 0)); };
+  const SORT = {
+    id: v => v.id, device: v => v.device || '', first: v => v.first || 0, last: v => v.last || 0, visits: v => v.visits || 0,
+    time: played, pulse: pulseSum, tries, snake: v => +(st(v).snake || {}).best || 0,
+    onlyup: v => +(st(v).onlyup || {}).bestTime || 1e9, pebble: v => { const b = (st(v).pebble || {}).best; return b ? b.left : 99; }, cheats: v => hasCheats(v) ? 1 : 0,
+  };
+
+  async function api(path, opts) {
+    const r = await fetch(path, { credentials: 'same-origin', ...opts });
+    let data = {}; try { data = await r.json(); } catch {}
+    return { status: r.status, data };
+  }
+  function show(which) { $('login').classList.toggle('hidden', which !== 'login'); $('admin').classList.toggle('hidden', which !== 'admin'); }
+
+  async function load() {
+    const { status, data } = await api('/api/admin/visitors');
+    if (status === 401) { show('login'); $('user').focus(); return; }
+    show('admin');
+    if (status !== 200) { $('dataErr').textContent = data.error || 'Could not load visitors (' + status + ').'; return; }
+    $('dataErr').textContent = '';
+    visitors = data.visitors || []; now = data.now || Date.now();
+    render();
+  }
+
+  function render() {
+    const day = now - 86400e3;
+    const summary = [
+      ['Visitors', visitors.length],
+      ['Here in last 24 h', visitors.filter(v => v.last > day).length],
+      ['Online now', visitors.filter(v => v.last > now - 3 * 60e3).length],
+      ['Time played', dur(visitors.reduce((a, v) => a + played(v), 0))],
+      ['Beat Asian Mode', visitors.filter(v => (((st(v).pulse || {}).best || [])[6] || 0) >= 100).length],
+    ];
+    $('summary').innerHTML = summary.map(([k, n]) => `<div class="stat"><b>${esc(n)}</b>${esc(k)}</div>`).join('');
+    const list = visitors.slice().sort((a, b) => { const x = SORT[sortKey](a), y = SORT[sortKey](b); return (x < y ? -1 : x > y ? 1 : 0) * sortDir; });
+    $('rows').innerHTML = list.map(v => {
+      const s = st(v), p = s.pulse || {}, best = p.best || [];
+      const lv = LEVELS.map((name, i) => { const n = +best[i] || 0; return `<span class="lv${i === 6 ? ' asian' : ''}${n >= 100 ? ' full' : ''}" title="${esc(name)}">${n}</span>`; }).join(' ');
+      const pb = (s.pebble || {}).best;
+      const c = s.cheats, cheats = hasCheats(v) ? `<span class="cheat">${c.god ? 'invincible ' : ''}${c.start > 0 ? 'start ' + esc(c.start) + '%' : ''}</span>` : '–';
+      const row = `<tr class="v" data-id="${esc(v.id)}"><td><b>${esc(num(v.id))}</b></td><td>${esc(v.device || '–')}</td><td>${esc(ago(v.first))}</td>` +
+        `<td class="${v.last > now - 3 * 60e3 ? 'on' : ''}">${esc(ago(v.last))}</td><td class="num">${esc(v.visits || 0)}</td><td class="num">${esc(dur(played(v)))}</td>` +
+        `<td>${lv}</td><td class="num">${esc(tries(v))}</td><td class="num">${esc(+(s.snake || {}).best || 0)}</td>` +
+        `<td>${esc(clock((s.onlyup || {}).bestTime))}</td><td>${pb ? esc(pb.left + ' left' + (pb.perfect ? ' (perfect)' : '')) : '–'}</td><td>${cheats}</td></tr>`;
+      const detail = openId === v.id ? `<tr><td colspan="12"><pre>${esc(JSON.stringify(v, (k, x) => (k === 'first' || k === 'last') && x ? new Date(x).toISOString() : x, 2))}</pre></td></tr>` : '';
+      return row + detail;
+    }).join('') || '<tr><td colspan="12" class="note">No visitors yet.</td></tr>';
+  }
+
+  $('rows').addEventListener('click', e => { const tr = e.target.closest('tr.v'); if (!tr) return; const id = +tr.dataset.id; openId = openId === id ? null : id; render(); });
+  document.querySelector('thead').addEventListener('click', e => {
+    const k = e.target.dataset && e.target.dataset.k; if (!k) return;
+    if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = -1; }
+    render();
+  });
+  $('loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    $('loginErr').textContent = '';
+    const { status, data } = await api('/api/admin/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ user: $('user').value, pass: $('pass').value }) });
+    $('pass').value = '';
+    if (status === 200) load(); else $('loginErr').textContent = data.error || 'Could not log in (' + status + ').';
+  });
+  $('refresh').addEventListener('click', load);
+  $('logout').addEventListener('click', async () => { await api('/api/admin/logout', { method: 'POST' }); visitors = []; show('login'); });
+
+  // ---- cheats: saved in this browser, read by the games ----
+  const get = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+  const put = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
+  const msg = t => { $('cheatMsg').textContent = t; };
+  const c = get('ult:cheats') || {};
+  $('god').checked = !!c.god; $('start').value = +c.start || 0;
+  $('saveCheats').addEventListener('click', () => {
+    const start = Math.max(0, Math.min(99, Math.round(+$('start').value || 0)));
+    $('start').value = start;
+    const next = { god: $('god').checked, start };
+    if (!next.god && !next.start) { try { localStorage.removeItem('ult:cheats'); } catch {} msg('Cheats off.'); return; }
+    msg(put('ult:cheats', next) ? 'Saved. Open Pulse Runner from the arcade to use them.' : 'Could not save: this browser blocks storage.');
+  });
+  $('unlock').addEventListener('click', () => { msg(put('pulse:best', LEVELS.map(() => 100)) ? 'Every Pulse Runner level now shows 100%.' : 'Could not save.'); });
+  $('reset').addEventListener('click', () => {
+    if (!confirm('Reset all game scores saved in this browser? This cannot be undone.')) return;
+    for (const k of ['pulse:best', 'pulse:bestP', 'pulse:tries', 'snake:best', 'snake:leaderboard', 'onlyup:bestTime', 'pebble:best']) { try { localStorage.removeItem(k); } catch {} }
+    msg('Scores reset on this device.');
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

@@ -157,64 +157,146 @@
     return level('Hyperdrive', 'HARD', 12, 254, L, '#ffe14d', '#ff3d7f', ['#2a2206', '#090701'], { bpm: 160, root: 38, prog: [0, 10, 8, 7], seed: 77 });
   }
 
-  // The special level. It breaks the normal design rules on purpose. It flips upside down straight away, then from the
-  // first second switches every 1.5 seconds between running upside down and flying upside down (where holding takes
-  // you DOWN), for 38 rounds.
-  // Every jump is a triple spike under a low spike, with a window of about 21 ms: more than one 60 fps frame, so it
-  // can always be done, but only with near-perfect timing. A solver plays the whole level through to prove it.
+  // The special level: 17 minutes of a random (but always the same) mix of running, running upside down, flying and
+  // flying upside down, with no loop and no warm-up.
+  // It is built backwards from one perfect run. First the perfect button presses are made up (random waits between
+  // jumps, random climbs and dives when flying), then every column of the level gets a spike below and a spike above
+  // that hug the path of that perfect run AND of the same run with any ONE press a single physics tick off.
+  // So every press has a window of 2 ticks = 8.3 ms: one tick off still works, two ticks off hits a spike.
+  // The bot plays the perfect run (lv.plan, copied into bot.js), which proves the level can be beaten.
   function asianMode() {
-    const L = builder(), C = PHYS.CEIL;
-    let up = false;   // gravity flipped: everything is built mirrored, in the coordinates of the side you stand on
-    const sp = (x, n = 1, y = 0) => up ? L.hang(x, n, C - 1 - y) : L.spikes(x, n, y);
-    const cap = (x, n, h) => up ? L.spikes(x, n, C - h - 0.5) : L.hang(x, n, h - 0.5);   // spikes from height h up
-    const blk = (x, y, w, h) => L.block(x, up ? C - y - h : y, w, h);
-    const flip = x => { L.portal(x, up ? 'norm' : 'flip', 5); up = !up; };
-    const tri = x => sp(x, 3);
+    const C = PHYS.CEIL, SPEED = 12, DT = 1 / 240, LENGTH = 17 * 60 * 240, EPS = 0.002;
+    // seeded random numbers (mulberry32): the level comes out exactly the same in every browser
+    let seed = 888;
+    const rnd = () => { seed = (seed + 0x6D2B79F5) | 0; let r = Math.imul(seed ^ (seed >>> 15), 1 | seed); r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r; return ((r ^ (r >>> 14)) >>> 0) / 4294967296; };
+    const randi = (lo, hi) => lo + Math.floor((hi - lo + 1) * rnd());
 
-    // The pieces are placed one after another at the cursor x.
-    let x = 3;
-    // one column of a spike-lined tunnel: centre c, opening `open`
-    const column = (cx, c, open) => {
-      const lo = c - open / 2, hi = c + open / 2;
-      if (lo - 0.5 > 0) blk(cx, 0, 1, lo - 0.5);
-      if (lo >= 0.5) sp(cx, 1, lo - 0.5);   // lower than that a spike would stick up too far; the floor itself is safe
-      cap(cx, 1, hi);
-      if (hi + 0.5 < C) blk(cx, hi + 0.5, 1, C - hi - 0.5);
+    // ---- 1) the perfect run, on a copy of the level that has only the portals (nothing else changes the path) ----
+    const portals = [], sim = { speed: SPEED, end: Infinity, objs: portals, maxW: 1 };
+    const plan = [], snaps = [];   // plan: ticks where the button changes (even = press, odd = release), as in bot.js
+    const xs = [], ys = [], vys = [];   // the perfect run after every tick
+    const s = newState(); let t = 0, held = false, before = { ...s };
+    const tick = () => { before = { ...s }; step(s, sim, DT, held, false); t++; xs.push(s.x); ys.push(s.y); vys.push(s.vy); };
+    const setHeld = h => { if (h === held) return; snaps.push({ prev: { ...before }, now: { ...s } }); plan.push(t); held = h; };
+    // a portal the player goes through on the next tick
+    const portal = k => portals.push({ t: 'portal', x: s.x + 0.5 + SPEED * DT / 2, k, y: s.grav === 1 ? 4 : 5 });
+    let type = 'run';
+    const enter = k => {
+      const up = k.endsWith('Up'), fly = k.startsWith('fly');
+      if (up !== (s.grav === -1)) portal(up ? 'flip' : 'norm');
+      if (fly !== (s.mode === 'ship')) portal(fly ? 'ship' : 'cube');
+      type = k;
     };
-    // One 3-second round: 1.5 s (18 tiles) running, then 1.5 s flying.
-    const round = (jumpH, peak, gap, pinch) => {
-      // run: a low roof where you land from the flight (no jumping there, so you can't just keep holding),
-      // then one triple under a low spike
-      L.portal(x, 'cube');
-      cap(x, 6, 1.75);
-      tri(x + 9); cap(x + 9, 1, jumpH);
-      x += 18;
-      // fly: 4 tiles to take off, then a 12-tile tunnel that climbs to `peak` and comes back down, maybe with a pinch at the top
-      L.portal(x, 'ship');
-      const len = 12, t0 = x + 4;
-      for (let i = 0; i < len; i++) {
-        // climb over tiles 0-3, flat at the top for 4-6, come down over 7-11
-        const c = i < 4 ? 1 + (peak - 1) * i / 4 : i < 7 ? peak : peak + (0.6 - peak) * (i - 6) / 5;
-        let open = gap + Math.max(0, 3 - i) * 0.35;   // a wider mouth to get in
-        if (pinch && i === 5) open = pinch;   // the middle of the flat top
-        column(t0 + i, c, open);
+    // running: land, then jump after a random wait (0.08-0.58 s), tap for 6 ticks, land, again
+    const run = until => {
+      setHeld(false);
+      tick(); while (!s.ground) tick();   // (one tick first: a portal you just went through may still be moving you)
+      while (t < until) {
+        for (let i = randi(20, 140); i > 0; i--) tick();
+        setHeld(true); for (let i = 0; i < 6; i++) tick(); setHeld(false);
+        while (!s.ground) tick();
       }
-      x += 18;
     };
+    // a jump whose top is where you take off into a flight (taking off from the floor would be too easy: the floor is safe)
+    const launch = () => {
+      for (let i = randi(20, 140); i > 0; i--) tick();
+      setHeld(true); for (let i = 0; i < 6; i++) tick(); setHeld(false);
+      while (s.vy * s.grav > 0) tick();
+    };
+    // flying: climbs and dives of 0.48-0.63 s, each long enough to reach full speed, kept between 1.2 and 7.8
+    // (never near the floor or the roof: those are safe to touch, so there would be no spike to hit)
+    const fits = (h, D, min, max) => {
+      const c = cloneState(s);
+      for (let i = 0; i < D + 60; i++) { step(c, sim, DT, i < D ? h : !h, false); if (c.y < min || c.y > max) return false; }
+      return true;
+    };
+    const fly = until => {
+      for (let i = randi(2, 8); i > 0; i--) tick();
+      while (t < until) {
+        const pref = s.y < 3 ? 1 : s.y > 6 ? -1 : rnd() < 0.5 ? 1 : -1, mid = s.y < 4.5 ? 1 : -1;
+        let pick = null;
+        for (const [min, max] of [[1.2, 7.8], [0.6, 8.4]]) {
+          for (const dir of [pref, -pref]) for (let k = 0; k < 6 && !pick; k++) {
+            const D = randi(116, 150), h = dir === s.grav;
+            if (fits(h, D, min, max)) pick = { h, D };
+          }
+          if (pick) break;
+        }
+        // nothing long enough fits: a shorter move towards the middle
+        for (let D = 108; !pick && D >= 24; D -= 12) if (fits(mid === s.grav, D, 0.6, 8.4)) pick = { h: mid === s.grav, D };
+        if (!pick) pick = { h: mid === s.grav, D: 60 };
+        setHeld(pick.h);
+        for (let i = 0; i < pick.D; i++) tick();
+      }
+    };
+    for (let i = 0; i < 120; i++) tick();   // half a second to get going
+    run(t + randi(360, 1080));
+    while (t < LENGTH) {
+      const options = ['run', 'runUp', 'fly', 'flyUp'].filter(k => k !== type), next = options[randi(0, 2)];
+      if (next.startsWith('fly') && s.mode === 'cube') launch();
+      enter(next);
+      (type.startsWith('fly') ? fly : run)(t + randi(360, 1080));   // 1.5-4.5 s each
+    }
+    if (s.mode === 'ship') { enter(s.grav === 1 ? 'run' : 'runUp'); run(t); }
+    for (let i = 0; i < 60; i++) tick();
+    const end = s.x;
 
-    // upside down from the start (the fall up to the ceiling takes about 5 tiles), then 38 rounds of run / fly, 1.5 s each
-    flip(x); x = 12;
-    for (let r = 0; r < 38; r++) round(ROUND_JUMP[r % ROUND_JUMP.length], ROUND_PEAK[r % ROUND_PEAK.length], ROUND_GAP, r % 2 ? ROUND_PINCH : 0);
-    // last run to the finish
-    L.portal(x, 'cube'); cap(x, 6, 1.75); tri(x + 9); cap(x + 9, 1, ROUND_JUMP[0]); x += 18;
-    const lv = level('Asian Mode', 'IMPOSSIBLE', 12, x + 6, L, '#ff2e2e', '#ffd23d', ['#3a0606', '#0a0101'], { bpm: 174, root: 38, prog: [0, 1, 5, 6], seed: 888 });
-    // the screen blurs for `length` seconds every `every` seconds into the run (by position, so always the same spots).
+    // ---- 2) where the player may be, column by column ----
+    const cols = Math.ceil(end) + 3, lo = new Float64Array(cols).fill(Infinity), hi = new Float64Array(cols).fill(-Infinity);
+    // the same test as the spike hit box in step(): which columns a player at x overlaps
+    const mark = (x, y) => {
+      const ax = x + 0.15;
+      for (let c = Math.max(0, Math.floor(x - 0.6)); c <= x + 0.6 && c < cols; c++) {
+        const bx = c + 0.3;
+        if (ax < bx + 0.4 && ax + 0.7 > bx) { if (y < lo[c]) lo[c] = y; if (y > hi[c]) hi[c] = y; }
+      }
+    };
+    mark(0, 0);
+    for (let k = 0; k < xs.length; k++) mark(xs[k], ys[k]);
+    // the perfect run with press i moved by d ticks; stops once it is back on the perfect path
+    const offRun = (i, d) => {
+      const e = plan[i] + d, k0 = Math.min(plan[i], e), c = cloneState(d < 0 ? snaps[i].prev : snaps[i].now);
+      let h = i % 2 === 1, j = i;
+      const path = [];
+      for (let k = k0; k < xs.length && k < k0 + 4000; k++) {
+        while (j < plan.length && (j === i ? e : plan[j]) <= k) { h = j % 2 === 0; j++; }
+        step(c, sim, DT, h, false);
+        path.push(c.x, c.y);
+        if (k > Math.max(plan[i], e) && c.y === ys[k] && c.vy === vys[k]) break;
+      }
+      return path;
+    };
+    for (let i = 0; i < plan.length; i++) {
+      if (snaps[i].now.mode === 'cube' && i % 2 === 1) continue;   // letting go while running doesn't change the jump
+      // One tick off can leave you a little higher or lower for the rest of a flight. Use whichever direction puts
+      // you higher, so all those paths sit on the same side of the perfect one and the gap stays one tick wide.
+      let d = 1, far = 0;
+      const p = offRun(i, 1);
+      for (let k = 0; k < p.length / 2; k++) { const diff = p[k * 2 + 1] - ys[plan[i] + k]; if (Math.abs(diff) > Math.abs(far)) far = diff; }
+      if (far < 0) d = -1;
+      const path = d === 1 ? p : offRun(i, d);
+      for (let k = 0; k < path.length; k += 2) mark(path[k], path[k + 1]);
+    }
+
+    // ---- 3) the spikes: tips just under your feet and just over your head ----
+    const L = builder();
+    for (const p of portals) L.portal(p.x, p.k, p.y);
+    for (let c = 0; c < cols; c++) {
+      if (lo[c] === Infinity) continue;
+      const below = lo[c] + 0.15 - 0.5 - EPS, above = hi[c] + 0.35 + EPS;
+      if (below >= 0) { L.spike(c, below); if (below > 0.05) L.o.push({ t: 'fill', x: c, y: 0, w: 1, h: below }); }
+      if (above + 1 <= C) { L.hang(c, 1, above); if (above + 1 < C - 0.05) L.o.push({ t: 'fill', x: c, y: above + 1, w: 1, h: C - above - 1 }); }
+    }
+    const lv = level('Asian Mode', 'IMPOSSIBLE', SPEED, end, L, '#ff2e2e', '#ffd23d', ['#3a0606', '#0a0101'], { bpm: 174, root: 38, prog: [0, 1, 5, 6], seed: 888 });
+    lv.plan = plan;   // the perfect run (make-bot.js checks it and writes it to bot.js)
+    // the screen blurs for 'length' seconds every 'every' seconds into the run (by position, so always the same spots).
     // Only the picture: the physics don't change, so the level is exactly as possible as without it.
-    lv.blur = { every: 1.5, length: 0.6, px: 8 };   // lands on the jump of every run
+    lv.blur = { every: 1.5, length: 0.6, px: 8 };
+    // the portals still work but aren't drawn (nor marked on the pause strip): you get no warning before running
+    // turns into flying or gravity flips
+    lv.hidePortals = true;
     return lv;
   }
-  // tuning for the rounds (changed by the level tools)
-  const ROUND_JUMP = [2.74], ROUND_PEAK = [2.5, 2.1, 2.8], ROUND_GAP = 1.35, ROUND_PINCH = 1.0;
 
   const LEVELS = [neonDrift(), skylineSteps(), staticBloom(), pulseCascade(), overclock(), hyperdrive(), asianMode()];
 

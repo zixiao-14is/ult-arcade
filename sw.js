@@ -2,9 +2,9 @@
 // and played like an app. Every file is saved on install; after that the saved copy is used straight away
 // and quietly refreshed from the network, so updates show up on the next launch.
 // When you add a game or a file, list it here and bump VERSION so phones fetch the new set.
-const VERSION = 'ult-arcade-8';
+const VERSION = 'ult-arcade-9';
 const FILES = [
-  './', 'index.html', 'launcher.js', 'manifest.webmanifest',
+  './', 'index.html', 'launcher.js', 'visitor.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
   'games/pulse-runner/index.html', 'games/pulse-runner/engine.js', 'games/pulse-runner/bot.js', 'games/pulse-runner/game.js',
   'games/snake/index.html', 'games/snake/snake.js',
@@ -23,7 +23,10 @@ self.addEventListener('activate', e => {
     .then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
+  const url = new URL(e.request.url);
+  if (e.request.method !== 'GET' || url.origin !== location.origin) return;
+  // the server's answers and the admin page are never saved: they must always be fresh, and private
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin')) return;
   e.respondWith(caches.open(VERSION).then(async cache => {
     const saved = await cache.match(e.request, { ignoreSearch: true });
     const fresh = fetch(e.request).then(r => { if (r.ok) cache.put(e.request, r.clone()); return r; });

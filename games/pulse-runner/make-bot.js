@@ -1,7 +1,8 @@
 // Node tool (not loaded by the game): solves every Pulse Runner level and writes the inputs to bot.js,
 // which the in-game BOT replays. Run it after changing a level:   node games/pulse-runner/make-bot.js
 //
-// It plays at 60 fps like a person would: each frame it may hold or release the button. A beam search keeps up to
+// Asian Mode brings its own solution (it is built around one perfect run), which is checked here and copied.
+// For the other levels: it plays at 60 fps like a person would: each frame it may hold or release the button. A beam search keeps up to
 // BEAM different player states per frame (merging near-identical ones), so it explores many ways through at once.
 const fs = require('fs');
 const path = require('path');
@@ -63,7 +64,8 @@ function replay(lv, ticks) {
 const out = {};
 for (const lv of LEVELS) {
   const t0 = Date.now();
-  const ticks = solve(lv);
+  // Asian Mode is built around its own perfect run (lv.plan): just check it. The others are searched for.
+  const ticks = lv.plan ? lv.plan.slice() : solve(lv);
   if (!ticks || !replay(lv, ticks)) { console.error(`${lv.name}: NOT SOLVED`); process.exitCode = 1; continue; }
   out[lv.name] = ticks;
   console.log(`${lv.name.padEnd(14)} solved: ${ticks.length / 2 | 0} presses (${Date.now() - t0} ms)`);

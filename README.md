@@ -11,7 +11,7 @@ There's also a GitHub Pages copy at https://zixiao-14is.github.io/ult-arcade/, p
 
 | Game | What it is |
 | --- | --- |
-| Pulse Runner | Neon rhythm auto-runner with music generated live in the browser, 7 levels including the near-impossible Asian Mode |
+| Pulse Runner | Neon rhythm auto-runner with music generated live in the browser, 7 levels including Asian Mode, 17 minutes that only a bot can beat |
 | Snake | Classic snake with a local top-10 leaderboard |
 | Tic-Tac-Toe | 2 players on one keyboard, or a perfect minimax bot |
 | Connect 4 | The classic 7×6 board game, 2 players on one keyboard |
@@ -108,26 +108,32 @@ You're a glowing cube that runs forward on its own. Time your jumps to the beat 
 
 ### Asian Mode
 
-The special level. Every jump is possible, but only with near-perfect timing, every single time.
+The special level: possible, but not for a human.
 
-- **About 2 minutes long** (1,404 tiles, about 5 times a normal level), with no checkpoints outside practice mode.
-- It flips upside down in the first second and from then on **switches every 1.5 seconds** between **running upside down** and **flying upside down** (where holding the button takes you *down*), for 38 rounds, start to finish. There's no warm-up.
-- **Every run** lands you under a low roof, so you can't just keep holding the button. Let go, then jump a **triple spike with a spike right above it**. Jump a hair early and you hit the spike above, a hair late and you land on the triple. The window is about **21 ms**: just over one frame at 60 fps.
-- **Every flight** is a spike-lined tunnel that climbs and comes back down. Every other one has a pinch in the middle only one tile tall.
-- **The screen blurs every 1.5 seconds** for 0.6 s (8 px). It goes by how far you are, so it always lands on the same spots: right on the jump of every run and the middle of every flight. You make the hardest presses half blind. It only changes the picture, not the physics, so the level is exactly as possible as without it. It's never blurred while paused.
+- **17 minutes long** (12,294 tiles, about 45 times a normal level), with no checkpoints outside practice mode.
+- **No loop and no warm-up.** A seeded random mix of **running**, **running upside down**, **flying** and **flying upside down** (where holding takes you *down*), switching every 1.5 to 4.5 seconds in an order you can't predict. Every flight starts from the top of a jump.
+- **Every column has a spike under you and a spike over you**, hugging one perfect run. The level is built backwards from that run: first the button presses are made up (random waits between jumps, random climbs and dives), then the spikes are placed tight around that path, and around the same path with any *one* press a single physics tick off.
+- So **every press has a window of 2 physics ticks: 8.3 ms.** That's the nearest the 240 Hz physics gets to 10 ms without going over. One tick off still works; two ticks off hits a spike. There are **1,452 such presses**, about one every 0.7 s, and 4 of them are tighter still (4.2 ms).
+- **The screen blurs every 1.5 seconds** for 0.6 s (8 px). It goes by how far you are, so it always lands on the same spots. It only changes the picture, not the physics.
+- **The portals are invisible.** They still work, but nothing is drawn and the pause strip doesn't mark them, so the 290 mode changes come with no warning (48 into flying, 45 back to running, 197 that flip gravity). 72 of them need the button changed 8 to 33 ms after the change, far quicker than anyone can react (about 200 ms), so they can only be played from memory.
 
-How do we know it's possible? A solver beats it at 60 fps, pressing or releasing only on frame boundaries, from **all four ways a frame can line up with the 240 Hz physics**. The in-game **BOT** (press `B` in the menu) replays a solved run, so you can watch it finish in one attempt.
+**Presses count to the physics tick.** The game keeps the exact moment of every press and release and applies it at the 1/240 s tick it fell in, not at the next screen frame. On a 60 Hz screen a frame is 4 ticks, so without this an 8 ms window would sometimes be impossible to hit at all. Now it only takes perfect timing.
 
-How hard is it? Each press's timing window is measured, and the chance of hitting all of them in one run is worked out for a player with a given timing accuracy (plus up to a frame of screen delay). These numbers leave out the blur, which only makes it harder:
+How do we know it's possible? The perfect run it's built from beats the whole level (`make-bot.js` checks it), and the in-game **BOT** (press `B` in the menu) plays it, all 17 minutes. Every press was also tested from 6 ticks early to 6 ticks late with everything else unchanged, which is where the 8.3 ms figure comes from.
 
-| Player's timing accuracy | Expected attempts to win once |
-| --- | --- |
-| ±8 ms (rhythm-game world class) | about 700,000 |
-| ±10 ms (elite) | about 150 million |
-| ±15 ms (very good) | about 3 × 10¹⁴ |
-| ±25 ms (most people) | about 10²⁹ (never) |
+How hard is it? Say a player aims every press at the middle of its window, and their presses land with a given timing spread (standard deviation). The chance of hitting all 1,452 in one run, before counting the blur or screen and controller lag:
 
-Practice mode works here too, so you can learn it one round at a time. Its best score is kept separately, and the win screen only says *YOU BEAT ASIAN MODE* for a real run, not a practice or bot one. The bot's runs never count toward your best.
+| Timing spread | One press in its window | Whole level in one attempt |
+| --- | --- | --- |
+| 10 ms (very good) | 32% | 1 in 10⁷¹³ |
+| 5 ms (best rhythm-game players, on a great day) | 60% | 1 in 10³²⁸ |
+| 3 ms (better than any human) | 84% | 1 in 10¹¹⁴ |
+| 2 ms | 96% | 1 in 10²⁴ |
+| 1 ms (a machine) | 99.99% | about 4 in 5 |
+
+That table already assumes a player who knows the whole level by heart. Without the portals you can't sight-read it at all: anyone who hasn't memorised all 290 hidden mode changes dies at the first flight they don't see coming, which is within the first few seconds.
+
+For scale: there are about 10⁸⁰ atoms in the observable universe. Practice mode still works, so you can play it in pieces. Its best score is kept separately, and the bot's runs never count toward your best.
 
 ### Objects
 
@@ -140,7 +146,7 @@ Practice mode works here too, so you can learn it one round at a time. Its best 
 - **Coyote time**: a jump still works for 80 ms after running off an edge.
 - **Practice mode**: drops a checkpoint about every 1.6 seconds, and you respawn at the last one instead of the start. Practice bests are tracked apart from normal bests.
 
-Best percentages are saved in `localStorage` under the keys `pulse:best` and `pulse:bestP`.
+Best percentages are saved in `localStorage` under the keys `pulse:best` and `pulse:bestP`, and attempts per level under `pulse:tries`.
 
 ### Level design rules
 
@@ -162,7 +168,7 @@ So every level follows:
 
 Every level is checked with a solver that may only press or release every 150 ms (roughly human precision) and must beat the level from 5 different timing offsets.
 
-Asian Mode breaks these rules on purpose (see above). It keeps one rule of its own: it must stay beatable at 60 fps whichever way the frames line up with the physics.
+Asian Mode breaks these rules on purpose (see above). It keeps one rule of its own: its perfect run must beat it.
 
 ### Music
 
@@ -325,11 +331,11 @@ L.portal(116, 'ship');    // 'ship' | 'cube' | 'flip' | 'norm'
 
 Wrap it with `level(name, diff, speed, end, L, color, color2, bg, music)` and add it to the `LEVELS` array. The menu and best scores pick up new levels automatically, and the menu centres a short last row of cards.
 
-Asian Mode (`asianMode()` in `engine.js`) is built a different way: from `round` pieces (one 1.5 s run plus one 1.5 s flight) placed one after another by a cursor, right after a gravity flip at the start. Everything is built in the coordinates of the side you stand on, so it's mirrored automatically while gravity is flipped. `ROUND_JUMP`, `ROUND_PEAK`, `ROUND_GAP` and `ROUND_PINCH` tune the rounds. A level with the difficulty name `IMPOSSIBLE` gets the throbbing red card in the menu.
+Asian Mode (`asianMode()` in `engine.js`) is generated instead, every time the game loads (about 0.1 s), from a seeded random generator, so it always comes out the same. It first plays a perfect run on a copy of the level with only its portals, then measures where the player can be in each column on that run and on every "one press one tick off" version of it, and puts a spike just under and just over that. Flights use the "one tick off" direction that ends up higher, so all of a flight's near-misses sit on one side of the perfect path and its gap stays one tick wide. `lv.plan` holds the perfect run. Solid `fill` objects behind the spikes are only drawn, never hit. A level with the difficulty name `IMPOSSIBLE` gets the throbbing red card in the menu.
 
 ### The bot
 
-`games/pulse-runner/make-bot.js` is a Node tool (it isn't loaded by the game or copied into the app). It solves every level with a beam search at 60 fps and writes the button presses to `bot.js`, which the in-game bot replays tick for tick. **After changing any level, run it again** (about 20 seconds), or the bot will crash into the changed part:
+`games/pulse-runner/make-bot.js` is a Node tool (it isn't loaded by the game or copied into the app). It solves every level with a beam search at 60 fps (Asian Mode brings its own perfect run, which it just checks) and writes the button presses to `bot.js`, which the in-game bot replays tick for tick. **After changing any level, run it again** (about 20 seconds), or the bot will crash into the changed part:
 
 ```
 node games/pulse-runner/make-bot.js
@@ -393,3 +399,40 @@ Apple only allows iPhone apps to be built on a Mac with Xcode, so there's no iPh
 2. On the iPhone, open the site in Safari, tap Share, then **Add to Home Screen**.
 
 It then opens from the home screen full screen with the ULT Arcade icon, and works offline after the first visit. The same works on Android from Chrome's menu.
+
+## Visitors, stats and /admin
+
+Every browser that opens the arcade gets the next **visitor number** from the server, kept on that device. It shows faintly in the bottom-right corner, on the arcade and inside every game, as `ULT #000042`. The arcade then sends that visitor's stats: device type (computer, phone/tablet or Android app), visits, time played and opens per game, Pulse Runner bests and attempts per level, Snake best and top 10, Only Up best time, Pebble Solitaire best, and whether cheats are on. It sends them on load, when a game closes, every minute while a game is open, and when the tab is hidden. No name, email or IP address is stored. Snake's top 10 does include whatever names players typed for it.
+
+**`/admin`** (for example https://ult-arcade.vercel.app/admin) logs in as `admin` and shows every visitor with their stats. Click a visitor for everything they sent, or a column title to sort. Its **cheat panel** changes only the browser it's used in:
+
+- **Invincible**: in Pulse Runner, spikes and walls can't kill you.
+- **Start at %**: every Pulse Runner level starts that far in, reached by playing the bot's run.
+- **Set all Pulse Runner levels to 100%**, and **Reset all my scores**.
+
+While Invincible or Start at is on, Pulse Runner shows **CHEATS ON** and saves no best scores.
+
+### How it works
+
+The server part is a few Vercel functions in `api/` (Node, no packages):
+
+| File | What it does |
+| --- | --- |
+| `api/visit.js` | `POST {token}`: gives a new browser the next number and a secret token, or counts a returning visit |
+| `api/stats.js` | `POST {token, stats}`: saves that visitor's latest stats |
+| `api/admin/login.js` / `logout.js` | Checks the username and password, then sets or clears a signed admin cookie (12 hours, HttpOnly). At most 10 tries per 15 minutes from one place. |
+| `api/admin/visitors.js` | Every visitor record, for the admin page only |
+| `api/_lib.js` | Database calls, the admin cookie, request limits |
+
+`visitor.js` is the browser side and `admin/index.html` the admin page. The Android app sends its stats to the website too.
+
+### Setting it up on Vercel (once)
+
+1. **Database:** in the Vercel dashboard, open the `ult-arcade` project → **Storage** → **Create Database** → **Neon** (Postgres; the free plan is plenty) → connect it to the project. Vercel adds its address as `DATABASE_URL` by itself, and the first visit creates the one table it needs (`ult_kv`). Upstash for Redis works too.
+2. **Admin password:** run this in the project folder and type the password when it asks. It's stored as a private Vercel setting, never in the code or on GitHub:
+   ```
+   npx vercel env add ADMIN_PASSWORD production
+   ```
+3. Redeploy, or push, so the functions pick up both.
+
+Until both are done, the arcade works as before, just without a visitor number, and `/admin` says what's missing.
