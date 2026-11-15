@@ -69,7 +69,7 @@
         <thead><tr>
           <th data-k="id">Visitor</th><th data-k="device">Device</th><th data-k="first">First seen</th><th data-k="last">Last seen</th>
           <th data-k="visits">Visits</th><th data-k="time">Time played</th><th data-k="pulse">Pulse Runner best % (levels 1–7)</th>
-          <th data-k="tries">Tries</th><th data-k="snake">Snake</th><th data-k="onlyup">Only Up</th><th data-k="pebble">Pebble</th><th data-k="cheats">Cheats</th>
+          <th data-k="tries">Tries</th><th data-k="ttt">Tic-Tac-Toe Elo</th><th data-k="snake">Snake</th><th data-k="onlyup">Only Up</th><th data-k="pebble">Pebble</th><th data-k="cheats">Cheats</th>
         </tr></thead>
         <tbody id="rows"></tbody>
       </table></div>
@@ -115,7 +115,7 @@
   const SORT = {
     id: v => v.id, device: v => v.device || '', first: v => v.first || 0, last: v => v.last || 0, visits: v => v.visits || 0,
     time: played, pulse: pulseSum, tries, snake: v => +(st(v).snake || {}).best || 0,
-    onlyup: v => +(st(v).onlyup || {}).bestTime || 1e9, pebble: v => { const b = (st(v).pebble || {}).best; return b ? b.left : 99; }, cheats: v => hasCheats(v) ? 1 : 0,
+    onlyup: v => +(st(v).onlyup || {}).bestTime || 1e9, pebble: v => { const b = (st(v).pebble || {}).best; return b ? b.left : 99; }, cheats: v => hasCheats(v) ? 1 : 0, ttt: v => v.ttt ? v.ttt.elo : 0,
   };
 
   async function api(path, opts) {
@@ -153,11 +153,11 @@
       const c = s.cheats, cheats = hasCheats(v) ? `<span class="cheat">${c.god ? 'invincible ' : ''}${c.start > 0 ? 'start ' + esc(c.start) + '%' : ''}</span>` : '–';
       const row = `<tr class="v" data-id="${esc(v.id)}"><td><b>${esc(num(v.id))}</b></td><td>${esc(v.device || '–')}</td><td>${esc(ago(v.first))}</td>` +
         `<td class="${v.last > now - 3 * 60e3 ? 'on' : ''}">${esc(ago(v.last))}</td><td class="num">${esc(v.visits || 0)}</td><td class="num">${esc(dur(played(v)))}</td>` +
-        `<td>${lv}</td><td class="num">${esc(tries(v))}</td><td class="num">${esc(+(s.snake || {}).best || 0)}</td>` +
+        `<td>${lv}</td><td class="num">${esc(tries(v))}</td><td class="num" title="won / drawn / lost">${v.ttt ? esc(v.ttt.elo) + ' <span class="note">' + esc(v.ttt.w + '/' + v.ttt.d + '/' + v.ttt.l) + '</span>' : '–'}</td><td class="num">${esc(+(s.snake || {}).best || 0)}</td>` +
         `<td>${esc(clock((s.onlyup || {}).bestTime))}</td><td>${pb ? esc(pb.left + ' left' + (pb.perfect ? ' (perfect)' : '')) : '–'}</td><td>${cheats}</td></tr>`;
-      const detail = openId === v.id ? `<tr><td colspan="12"><pre>${esc(JSON.stringify(v, (k, x) => (k === 'first' || k === 'last') && x ? new Date(x).toISOString() : x, 2))}</pre></td></tr>` : '';
+      const detail = openId === v.id ? `<tr><td colspan="13"><pre>${esc(JSON.stringify(v, (k, x) => (k === 'first' || k === 'last') && x ? new Date(x).toISOString() : x, 2))}</pre></td></tr>` : '';
       return row + detail;
-    }).join('') || '<tr><td colspan="12" class="note">No visitors yet.</td></tr>';
+    }).join('') || '<tr><td colspan="13" class="note">No visitors yet.</td></tr>';
   }
 
   $('rows').addEventListener('click', e => { const tr = e.target.closest('tr.v'); if (!tr) return; const id = +tr.dataset.id; openId = openId === id ? null : id; render(); });

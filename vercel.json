@@ -4,6 +4,9 @@
   "buildCommand": null,
   "outputDirectory": ".",
   "cleanUrls": false,
+  "functions": {
+    "api/ttt.js": { "maxDuration": 20 }
+  },
   "rewrites": [
     { "source": "/admin", "destination": "/admin/index.html" }
   ],

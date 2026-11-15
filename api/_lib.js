@@ -15,25 +15,34 @@ const ON_VERCEL = process.env.VERCEL === '1';
 
 // Run Redis commands in one round trip; returns their results in order.
 // Without a database on this computer (testing), a stand-in in memory is used instead.
-const mem = new Map();
+// Commands: GET, SET (with NX: only if the key isn't there), INCR, MGET, EXPIRE, DEL, GETDEL (get and delete at once)
+// and CAS key old new (set it to new only if it still holds old: 1 if it did, else 0).
+const mem = new Map(), memExp = new Map();
+const memHas = k => { if (memExp.has(k) && memExp.get(k) <= Date.now()) { mem.delete(k); memExp.delete(k); } return mem.has(k); };
 function memCmd([cmd, k, ...a]) {
   switch (cmd.toUpperCase()) {
-    case 'GET': return mem.has(k) ? mem.get(k) : null;
-    case 'SET': if (a[1] === 'NX' && mem.has(k)) return null; mem.set(k, String(a[0])); return 'OK';
-    case 'INCR': { const n = (+mem.get(k) || 0) + 1; mem.set(k, String(n)); return n; }
-    case 'MGET': return [k, ...a].map(x => mem.has(x) ? mem.get(x) : null);
-    case 'EXPIRE': return 1;
+    case 'GET': return memHas(k) ? mem.get(k) : null;
+    case 'SET': if (a[1] === 'NX' && memHas(k)) return null; mem.set(k, String(a[0])); memExp.delete(k); return 'OK';
+    case 'INCR': { const n = (memHas(k) ? +mem.get(k) : 0) + 1; mem.set(k, String(n)); return n; }
+    case 'MGET': return [k, ...a].map(x => memHas(x) ? mem.get(x) : null);
+    case 'EXPIRE': if (!memHas(k)) return 0; memExp.set(k, Date.now() + a[0] * 1000); return 1;
+    case 'DEL': { const had = memHas(k); mem.delete(k); memExp.delete(k); return had ? 1 : 0; }
+    case 'GETDEL': { const v = memHas(k) ? mem.get(k) : null; mem.delete(k); memExp.delete(k); return v; }
+    case 'CAS': if (memHas(k) && mem.get(k) === a[0]) { mem.set(k, String(a[1])); return 1; } return 0;
     default: throw new Error('test database: no ' + cmd);
   }
 }
+// Redis has no CAS command: a tiny script does it there
+const CAS_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then redis.call('SET', KEYS[1], ARGV[2], 'KEEPTTL') return 1 else return 0 end";
 async function redis(...cmds) {
   if (!URL_ || !TOKEN) {
     if (NEON_URL) return neon(cmds);
     if (ON_VERCEL) throw Object.assign(new Error('The database is not set up yet (Vercel → Storage).'), { status: 503 });
     return cmds.map(memCmd);
   }
+  const sent = cmds.map(c => c[0].toUpperCase() === 'CAS' ? ['EVAL', CAS_LUA, '1', c[1], c[2], c[3]] : c);
   const r = await fetch(URL_.replace(/\/$/, '') + '/pipeline', {
-    method: 'POST', headers: { Authorization: 'Bearer ' + TOKEN, 'content-type': 'application/json' }, body: JSON.stringify(cmds),
+    method: 'POST', headers: { Authorization: 'Bearer ' + TOKEN, 'content-type': 'application/json' }, body: JSON.stringify(sent),
   });
   if (!r.ok) throw new Error('database error ' + r.status);
   return (await r.json()).map(x => { if (x.error) throw new Error('database: ' + x.error); return x.result; });
@@ -57,9 +66,14 @@ function neonSql([cmd, k, ...a]) {
         exp = case when t.exp <= now() then null else t.exp end returning v`, params: [k] };
     case 'EXPIRE': return { query: `update ${TABLE} set exp = now() + make_interval(secs => $2) where k = $1`, params: [k, Number(a[0])] };
     case 'MGET': return { query: `select k, v from ${TABLE} where k in (select jsonb_array_elements_text($1::jsonb)) and ${LIVE}`, params: [JSON.stringify([k, ...a])] };
+    case 'DEL': return { query: `delete from ${TABLE} where k = $1 returning ${LIVE}`, params: [k] };
+    case 'GETDEL': return { query: `delete from ${TABLE} where k = $1 returning v, ${LIVE}`, params: [k] };
+    // keeps the key's time limit, like the Redis version
+    case 'CAS': return { query: `update ${TABLE} set v = $3 where k = $1 and v = $2 and ${LIVE} returning 1`, params: [k, String(a[0]), String(a[1])] };
     default: throw new Error('database: no ' + cmd);
   }
 }
+const yes = x => x === 't' || x === 'true';   // Postgres sends true as 't' in text form
 let neonReady = false;
 async function neon(cmds) {
   const queries = cmds.map(neonSql);
@@ -85,6 +99,9 @@ async function neon(cmds) {
       case 'INCR': return Number(rows[0][0]);
       case 'EXPIRE': return results[i].rowCount ? 1 : 0;
       case 'MGET': { const m = new Map(rows.map(([k, v]) => [k, v])); return keys.map(k => m.has(k) ? m.get(k) : null); }
+      case 'DEL': return rows.length && yes(rows[0][0]) ? 1 : 0;
+      case 'GETDEL': return rows.length && yes(rows[0][1]) ? rows[0][0] : null;
+      case 'CAS': return rows.length ? 1 : 0;
     }
   });
 }

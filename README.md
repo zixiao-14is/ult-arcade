@@ -13,7 +13,7 @@ There's also a GitHub Pages copy at https://zixiao-14is.github.io/ult-arcade/, p
 | --- | --- |
 | Pulse Runner | Neon rhythm auto-runner with music generated live in the browser, 7 levels including Asian Mode, 17 minutes that only a bot can beat |
 | Snake | Classic snake with a local top-10 leaderboard |
-| Tic-Tac-Toe | 2 players on one keyboard, or a perfect minimax bot |
+| Tic-Tac-Toe | 2 players on one keyboard, a perfect minimax bot, or ranked online play with Elo (website only) |
 | Connect 4 | The classic 7×6 board game, 2 players on one keyboard |
 | Only Up | Retro climbing game with no checkpoints, about 30 minutes to the top |
 | Pebble Solitaire | The classic 33-hole cross board puzzle: jump pebbles until one is left |
@@ -60,7 +60,8 @@ Every game also works on its own: open its `index.html` inside `games/` directly
     │   ├── index.html         Menu + board markup
     │   ├── style.css
     │   ├── bot.js             Rules + minimax bot, no DOM, runs in Node
-    │   └── tictactoe.js       Menus, board, input
+    │   ├── tictactoe.js       Menus, board, input
+    │   └── online.js          Online play: queue, clocks, Elo (website only; left out of the app)
     ├── connect-four/
     │   ├── index.html         Page that loads the two scripts below
     │   ├── rules.js           Rules (Connect4), no DOM, runs in Node
@@ -200,6 +201,7 @@ Get three in a row. Pick a mode from the menu:
 | `1` | 2 players: take turns on one keyboard |
 | `2` | vs Bot, you are X (you go first) |
 | `3` | vs Bot, you are O (the bot goes first) |
+| `4` | Play online, ranked (website only, not in the Android app) |
 
 | Input | Action |
 | --- | --- |
@@ -210,6 +212,29 @@ Get three in a row. Pick a mode from the menu:
 | `Esc` | Back to the menu, or back to the arcade from the menu |
 
 The score (X wins, draws, O wins) is kept until you go back to the menu.
+
+### Online play (website only)
+
+`4` puts you in a queue. As soon as someone else queues you're paired (X or O at random, X moves first) and play a ranked game against them. You are your visitor number (`ULT #000042`), so your rating stays with your browser.
+
+- **Clock:** 3 minutes each for the whole game, chess style. Yours only runs on your turn; run out and you lose.
+- **First move:** if a side doesn't make its first move within 30 seconds, the game is aborted and nothing counts. (So someone who walked away doesn't cost the other player 3 minutes and Elo.)
+- **Draw offers:** `OFFER DRAW`; the other player accepts or declines. Making a move instead also declines. You can offer again once a move has been made. If both offer, it's a draw.
+- **Resign:** click `RESIGN` twice (the second click confirms). Resigning loses.
+- **Leaving:** `Esc` or `CANCEL` leaves the queue. Closing the page mid-game doesn't end it: open Tic-Tac-Toe again and `4` takes you back to your game.
+
+**Elo**, the classic formula. Everyone starts at exactly 1000. After each game:
+
+```
+expected score   E = 1 / (1 + 10^((opponent - you) / 400))
+new rating       you + 32 × (S - E)        S = 1 win, 0.5 draw, 0 loss
+```
+
+A draw is half a win: between equal ratings nobody moves, and between unequal ratings the lower-rated player gains what the higher-rated one loses (1000 vs 1200: +8 / −8). A win between equals is +16 / −16. Ratings are whole numbers: the change is rounded, and the two changes always add up to zero. Aborted games change nothing.
+
+**How it works:** the server is one Vercel function, `api/ttt.js`, using the same database as the visitor numbers. The queue holds one waiting player; a call waits up to 8 s, checking every 0.25 s, so a second player is paired at once and the first hears within about a quarter of a second. During a game the page asks the server to "tell me when something changes" the same way, so moves arrive within about a quarter of a second. The server keeps the clocks and decides when one runs out; every change to a game is a compare-and-set, so two things at once (two moves, a move and a resignation) can never both happen. `/admin` shows everyone's rating and record.
+
+The Android app doesn't have online play: `app/scripts/build-www.js` leaves `online.js` and the line that loads it out of the app, and `online.js` also switches itself off inside the app.
 
 ### The bot
 

@@ -12,8 +12,8 @@ module.exports = async (req, res) => {
     for (let from = n; from >= 1; from -= 500) {
       const keys = [];
       for (let id = from; id > Math.max(0, from - 500); id--) keys.push('ult:v:' + id);
-      const [rows] = await redis(['MGET', ...keys]);
-      for (const r of rows) if (r) visitors.push(JSON.parse(r));
+      const [rows, elos] = await redis(['MGET', ...keys], ['MGET', ...keys.map(k => k.replace('ult:v:', 'ttt:elo:'))]);
+      rows.forEach((r, i) => { if (!r) return; const v = JSON.parse(r); if (elos[i]) v.ttt = JSON.parse(elos[i]); visitors.push(v); });   // ttt: online Tic-Tac-Toe rating
     }
     send(res, 200, { visitors, now: Date.now() });
   } catch (e) {

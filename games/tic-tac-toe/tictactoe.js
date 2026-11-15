@@ -96,6 +96,7 @@
   }
 
   addEventListener('keydown', e => {
+    if (document.body.dataset.online) return;   // online play (online.js, website only) has the keyboard
     if (mode === null) {
       if (e.key === '1') start('2p');
       else if (e.key === '2') start('botX');
