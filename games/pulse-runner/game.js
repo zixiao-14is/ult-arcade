@@ -259,6 +259,12 @@ const PulseRunner = (() => {
   // ---------- update ----------
   const DT = 1 / 240;
   let acc = 0, last = performance.now();
+  // Smooth motion on any screen: physics moves in 1/240 s ticks, but a screen frame rarely ends exactly on a tick
+  // (60 Hz gets 3, 4 or 5 ticks a frame, 144 Hz 1 or 2). Drawing the player and camera part of the way between the
+  // last two ticks, by how far into the next tick this frame is, makes the world move the same distance every frame.
+  // It only changes the picture, never the physics, and adds under one tick (4 ms) to what you see.
+  const before = { s: null, x: 0, y: 0 };   // the player's place one tick ago (s: which state it belongs to)
+  let rx = 0, ry = 0;                       // where the player is drawn this frame
   function frame(now) {
     if (!active) return;
     const real = paused ? 0 : Math.min(0.1, (now - last) / 1000); last = now;   // paused: everything holds still
@@ -275,9 +281,10 @@ const PulseRunner = (() => {
             const plan = botPlan(); pressed = false;
             while (botNext < plan.length && plan[botNext] <= botTick) { held = botNext % 2 === 0; if (held) pressed = true; botNext++; }
           } else applyInputs(now - (acc - DT) * 1000);   // everything that happened before this tick ends
-          const before = cheats.god && !botPlaying() ? cloneState(s) : null;
+          const safe = cheats.god && !botPlaying() ? cloneState(s) : null;
+          before.s = s; before.x = s.x; before.y = s.y;
           step(s, lv, DT, held, pressed);
-          if (s.dead && before) { s = before; step(s, ghostOf(lv), DT, held, pressed); }   // invincible: carry on through it
+          if (s.dead && safe) { s = safe; before.s = s; step(s, ghostOf(lv), DT, held, pressed); }   // invincible: carry on through it
           pressed = false; acc -= DT; botTick++;
           if (s.dead) die();
         }
@@ -290,13 +297,18 @@ const PulseRunner = (() => {
           if (s.ground) rot += (Math.round(rot / 90) * 90 - rot) * Math.min(1, real * 20);
           else rot += 420 * real * s.grav;
         } else rot = -Math.atan2(s.vy, lv.speed) * 180 / Math.PI;
-        if (s.mode === 'ship' || !s.ground) trail.push({ x: s.x + 0.5, y: s.y + 0.5, life: 0.3 });
+        if (s.mode === 'ship' || !s.ground) trail.push({ x: null, y: null, life: 0.3 });   // placed below, once rx/ry are known
       }
     } else { acc = 0; applyInputs(Infinity); pressed = false; }
+    if (s) {   // a new or reset player (start, respawn) has no tick before it yet: draw it where it is
+      const k = before.s === s && !s.dead && !s.won && !paused ? Math.min(1, acc / DT) : 1;
+      rx = before.s === s ? before.x + (s.x - before.x) * k : s.x;
+      ry = before.s === s ? before.y + (s.y - before.y) * k : s.y;
+    }
     if (scene === 'win') winTimer += real;
     for (const p of particles) { p.x += p.vx * real; p.y += p.vy * real; p.vy -= 12 * real; p.life -= real; }
     particles = particles.filter(p => p.life > 0);
-    for (const t of trail) t.life -= real;
+    for (const t of trail) { if (t.x === null) { t.x = rx + 0.5; t.y = ry + 0.5; } t.life -= real; }
     trail = trail.filter(t => t.life > 0);
     flash = Math.max(0, flash - real * 3);
 
@@ -308,6 +320,26 @@ const PulseRunner = (() => {
   let camX = 0;
   const sx = x => (x - camX) * T, sy = y => H / 2 + (4.5 - y) * T;   // the 13-tile track sits in the middle of the screen
   function glow(color, blur) { g.shadowColor = color; g.shadowBlur = blur; }
+
+  // Every spike looks the same, so its glowing picture is drawn once and then copied onto the screen for each one.
+  // A glow (shadowBlur) is a blur, the most costly thing a canvas draws, and Asian Mode has about 100 spikes on
+  // screen; copying a picture is one of the cheapest. Redrawn only when the tile size, screen scale or colour changes.
+  const sprites = {};
+  function spikeSprite(hang, color) {
+    const dpr = window.devicePixelRatio || 1, key = `${hang}|${color}|${T}|${dpr}`;
+    if (sprites[key]) return sprites[key];
+    const pad = 16, w = T + pad * 2, h = T * 0.9 + pad * 2;   // room around it for the glow
+    const img = document.createElement('canvas');
+    img.width = Math.ceil(w * dpr); img.height = Math.ceil(h * dpr);
+    const c = img.getContext('2d');
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const base = hang ? pad : pad + T * 0.9, tip = hang ? pad + T * 0.9 : pad;
+    c.beginPath(); c.moveTo(pad + 2, base); c.lineTo(pad + T / 2, tip); c.lineTo(pad + T - 2, base); c.closePath();
+    c.fillStyle = '#0a0a12'; c.fill();
+    c.shadowColor = color; c.shadowBlur = 10; c.strokeStyle = color; c.lineWidth = 2; c.stroke();
+    for (const k in sprites) if (!k.endsWith(`|${T}|${dpr}`)) delete sprites[k];   // forget pictures for an old size
+    return (sprites[key] = { img, pad, w: img.width / dpr, h: img.height / dpr });
+  }
 
   function beatPulse() {
     const b = Music.beat();
@@ -337,8 +369,8 @@ const PulseRunner = (() => {
 
   function drawWorld() {
     const pulse = beatPulse();
-    camX = paused ? viewX : s.x - (W / T) * 0.3;
-    drawBackground(lv, s.x);
+    camX = paused ? viewX : rx - (W / T) * 0.3;
+    drawBackground(lv, rx);
 
     // floor
     g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(0, sy(0), W, H - sy(0));
@@ -371,13 +403,9 @@ const PulseRunner = (() => {
         if (o.slab) { g.moveTo(X + 4, top + h / 2); g.lineTo(X + w - 4, top + h / 2); }
         g.stroke(); g.globalAlpha = 1;
         glow(lv.color, 8 + pulse * 10); g.lineWidth = 2; g.strokeRect(X + 1, top + 1, w - 2, h - 2); g.shadowBlur = 0;
-      } else if (o.t === 'spike' || o.t === 'hang') {
-        g.beginPath();
-        if (o.t === 'spike') { g.moveTo(X + 2, Y); g.lineTo(X + T / 2, Y - T * 0.9); g.lineTo(X + T - 2, Y); }
-        else { const t0 = sy(o.y + 1); g.moveTo(X + 2, t0); g.lineTo(X + T / 2, t0 + T * 0.9); g.lineTo(X + T - 2, t0); }
-        g.closePath();
-        g.fillStyle = '#0a0a12'; g.fill();
-        glow(lv.color2, 10); g.strokeStyle = lv.color2; g.lineWidth = 2; g.stroke(); g.shadowBlur = 0;
+      } else if (o.t === 'spike' || o.t === 'hang') {   // a ready-made picture: see spikeSprite
+        const sp = spikeSprite(o.t === 'hang', lv.color2);
+        g.drawImage(sp.img, X - sp.pad, (o.t === 'spike' ? Y - T * 0.9 : sy(o.y + 1)) - sp.pad, sp.w, sp.h);
       } else if (o.t === 'pad') {
         glow('#ffe14d', 14); g.fillStyle = '#ffe14d';
         g.beginPath(); g.ellipse(X + T / 2, Y, T * 0.45, T * 0.22, 0, Math.PI, 0); g.fill(); g.shadowBlur = 0;
@@ -413,7 +441,7 @@ const PulseRunner = (() => {
     }
     g.globalAlpha = 1;
 
-    if (!s.dead) drawPlayer(sx(s.x + 0.5), sy(s.y + 0.5), rot, s.mode, lv);
+    if (!s.dead) drawPlayer(sx(rx + 0.5), sy(ry + 0.5), rot, s.mode, lv);
 
     for (const p of particles) {
       g.globalAlpha = Math.max(0, p.life); g.fillStyle = p.c;
@@ -561,7 +589,7 @@ const PulseRunner = (() => {
   function draw() {
     const bl = blurNow(), f = bl > 0.3 ? `blur(${bl.toFixed(1)}px)` : '';
     if (f !== blurShown) { cv.style.filter = f; blurShown = f; }   // CSS blur on the canvas: cheap, and only while it's on
-    g.clearRect(0, 0, W, H);
+    g.clearRect(0, 0, W, H);   // keep: a full clear tells the browser it can drop everything drawn the frame before
     if (scene === 'menu') drawMenu();
     else if (scene === 'play') drawWorld();
     else drawWin();

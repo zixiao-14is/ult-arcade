@@ -380,7 +380,7 @@
     }
   }
   function drawPlatform(p, i) {
-    const wx = platX(p, s.t), wy = platY(p, s.t);
+    const wx = platX(p, rt), wy = platY(p, rt);   // rt: see frame()
     const py = sy(wy);
     if (py < -8 || py > VIEW_H + 8) return;
     let x = Math.round(wx) + ox;
@@ -532,8 +532,8 @@
     drawWind(z);
     for (const p of parts) { g.fillStyle = p.c; g.fillRect(Math.round(p.x) + ox, sy(p.y), 1, 1); }
     // round relative to a moving platform, so the player doesn't jitter against it
-    const under = s.on >= 0 && plats[s.on].move ? platX(plats[s.on], s.t) : 0;
-    drawPlayer(Math.round(under) + Math.round(s.x - under) + ox, sy(s.y) - PH);
+    const under = s.on >= 0 && plats[s.on].move ? platX(plats[s.on], rt) : 0;
+    drawPlayer(Math.round(under) + Math.round(rx - under) + ox, sy(ry) - PH);
     drawHud(z);
     if (s.won) drawWin();
     else if (paused) drawPause();
@@ -552,14 +552,25 @@
     cv.style.width = VIEW_W * scale + 'px'; cv.style.height = VIEW_H * scale + 'px';
   }
   let last = 0, acc = 0;
+  // Smooth motion on any screen: physics moves in 1/120 s ticks, but a screen frame rarely ends exactly on a tick
+  // (60 Hz gets 1, 2 or 3 ticks a frame, 144 Hz 0, 1 or 2). The player and moving platforms are drawn part of the way
+  // between the last two ticks, by how far into the next tick this frame is, so they move evenly. Only the picture
+  // changes, never the physics.
+  const before = { s: null, x: 0, y: 0 };   // the player one tick ago (s: which state it belongs to)
+  let rx = 0, ry = 0, rt = 0;               // where the player is drawn, and the time platforms are drawn at
   function frame(now) {
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
     // volume buttons are controls only while actually climbing with the phone sideways
     setVolumeKeys(!paused && !s.won && innerWidth > innerHeight && document.visibilityState === 'visible');
     if (!paused && !s.won) {
       acc += dt;
-      while (acc >= STEP && !s.won) { acc -= STEP; tick(); }
+      while (acc >= STEP && !s.won) { acc -= STEP; before.s = s; before.x = s.x; before.y = s.y; tick(); }
     }
+    // a new or loaded climb has no tick before it yet, and paused or won holds still: draw it exactly where it is
+    const k = before.s === s && !paused && !s.won ? Math.min(1, acc / STEP) : 1;
+    rx = before.s === s ? before.x + (s.x - before.x) * k : s.x;
+    ry = before.s === s ? before.y + (s.y - before.y) * k : s.y;
+    rt = s.t - (1 - k) * STEP;
     for (const p of parts) { p.x += p.vx * dt; p.y += p.vy * dt; if (p.g) p.vy -= p.g * dt; p.life -= dt; }
     parts = parts.filter(p => p.life > 0);
     if (!paused) { banner = Math.max(0, banner - dt); fellText = Math.max(0, fellText - dt); }

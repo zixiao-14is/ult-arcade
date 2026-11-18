@@ -38,6 +38,8 @@ Every game also works on its own: open its `index.html` inside `games/` directly
 
 On a computer, the frame rate shows faintly in the top-right corner (`60 FPS`), on the arcade and on top of every game. It updates twice a second. Press **`F3`** to hide it or show it again, on the arcade or inside any game. The browser remembers your choice (`localStorage` key `ult:fps`). Phones, tablets and the Android app don't show it.
 
+The frame rate can't go above the screen's refresh rate: browsers draw one frame per screen refresh. So `60 FPS` on a fast graphics card means the screen is running at 60 Hz. If the monitor can do more (144 Hz, say), set it in Windows under **Settings → System → Display → Advanced display → Choose a refresh rate**, and make sure the browser has graphics acceleration on (Chrome and Edge: **Settings → System → Use graphics acceleration when available**). Pulse Runner and Only Up move smoothly at any refresh rate (see [Smooth motion](#smooth-motion)).
+
 ## File layout
 
 ```
@@ -342,6 +344,14 @@ Your best result is saved in `localStorage` under `pebble:best`.
 - `builder()` / `level(...)`: the level-building helpers below, so tools can build test levels
 
 The game calls `step` at a fixed 240 Hz, separate from the render frame rate, so physics behaves the same on any display. `level()` sorts a level's objects by `x`, and `step` only looks at the ones near the player, so a long level like Asian Mode costs no more per tick than a short one.
+
+### Smooth motion
+
+Pulse Runner's physics moves in fixed 1/240 s ticks (Only Up's in 1/120 s ticks), but a screen frame rarely ends exactly on a tick. A 60 Hz frame holds 3, 4 or 5 ticks depending on tiny timing differences, and a 144 Hz frame 1 or 2. If each frame showed the player where the last tick left it, the world would jump 3.6 px one frame and 7.2 px the next on a 144 Hz screen, which looks like stutter even at a high frame rate.
+
+So both games draw the player (and the camera, and Only Up's moving platforms) part of the way between the last two ticks, by how far the frame is into the next tick. The world then moves the same distance every frame: about 6 px per frame at 144 Hz and 14.4 px at 60 Hz on a 1080p screen. This only changes the picture, never the physics or the timing of presses, and what you see is less than one tick (4 ms in Pulse Runner) behind the physics.
+
+Pulse Runner's spikes glow, and a glow (`shadowBlur`) is the most costly thing a canvas draws. Every spike looks the same, so its glowing picture is drawn once into a small hidden canvas and copied onto the screen for each spike. Asian Mode has about 100 spikes on screen at a time.
 
 ### Making levels
 
