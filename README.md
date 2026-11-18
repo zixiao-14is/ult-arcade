@@ -35,12 +35,16 @@ Open `index.html` in a modern browser (Chrome, Edge, Firefox or Safari). After a
 
 Every game also works on its own: open its `index.html` inside `games/` directly.
 
+On a computer, the frame rate shows faintly in the top-right corner (`60 FPS`), on the arcade and on top of every game. It updates twice a second. Phones, tablets and the Android app don't show it.
+
 ## File layout
 
 ```
 .
 ├── index.html                 The arcade page: GAMES list, opens games in an <iframe>
 ├── launcher.js                The arcade itself (ArcadeLauncher): loading screen, game cards, back button
+├── visitor.js                 Visitor number in the corner, stats for /admin
+├── fps.js                     FPS counter in the top-right corner (computers only)
 ├── manifest.webmanifest       Lets phones add the games to the home screen
 ├── sw.js                      Offline support for the home-screen version
 ├── icons/                     App icons (made by app/scripts/make-icons.js)

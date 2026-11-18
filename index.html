@@ -37,6 +37,7 @@
 
 <script src="launcher.js"></script>
 <script src="visitor.js"></script>
+<script src="fps.js"></script>
 <script>
 // The games, in the order the arcade shows them. file is the game's page inside games/;
 // id picks the card's picture and colour in launcher.js (CARDS).
@@ -82,6 +83,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !win
 
 ArcadeLauncher.start({ games: GAMES, open: openGame, close: closeGame, frame });
 Visitor.start();   // visitor number in the corner, stats for the admin page
+FpsCounter.start();   // frame rate in the top-right corner, computers only
 </script>
 </body>
 </html>

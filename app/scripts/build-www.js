@@ -5,7 +5,7 @@ const path = require('path');
 
 const root = path.resolve(__dirname, '..', '..');
 const www = path.resolve(__dirname, '..', 'www');
-const FILES = ['index.html', 'launcher.js', 'visitor.js'];
+const FILES = ['index.html', 'launcher.js', 'visitor.js', 'fps.js'];
 const SKIP = new Set(['pace.js', 'make-bot.js']);   // Node tools that the games never load
 // Website-only features: left out of the app, together with the line of the page that loads them
 const WEB_ONLY = { 'games/tic-tac-toe/online.js': 'games/tic-tac-toe/index.html' };   // Tic-Tac-Toe's online play
