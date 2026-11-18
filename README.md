@@ -31,11 +31,12 @@ Open `index.html` in a modern browser (Chrome, Edge, Firefox or Safari). After a
 | Tap or click a card | Play that game |
 | `←` `→` `↑` `↓` then `Enter` (or `Space`) | Pick a card with the keyboard |
 | `1`–`6` | Open a game directly |
+| `F3` | Show or hide the FPS counter (computers only, also works inside games) |
 | `Esc` on a game's main menu, or the ← button top left | Back to the arcade |
 
 Every game also works on its own: open its `index.html` inside `games/` directly.
 
-On a computer, the frame rate shows faintly in the top-right corner (`60 FPS`), on the arcade and on top of every game. It updates twice a second. Phones, tablets and the Android app don't show it.
+On a computer, the frame rate shows faintly in the top-right corner (`60 FPS`), on the arcade and on top of every game. It updates twice a second. Press **`F3`** to hide it or show it again, on the arcade or inside any game. The browser remembers your choice (`localStorage` key `ult:fps`). Phones, tablets and the Android app don't show it.
 
 ## File layout
 
@@ -44,7 +45,7 @@ On a computer, the frame rate shows faintly in the top-right corner (`60 FPS`), 
 ├── index.html                 The arcade page: GAMES list, opens games in an <iframe>
 ├── launcher.js                The arcade itself (ArcadeLauncher): loading screen, game cards, back button
 ├── visitor.js                 Visitor number in the corner, stats for /admin
-├── fps.js                     FPS counter in the top-right corner (computers only)
+├── fps.js                     FPS counter in the top-right corner (computers only), F3 toggles it
 ├── manifest.webmanifest       Lets phones add the games to the home screen
 ├── sw.js                      Offline support for the home-screen version
 ├── icons/                     App icons (made by app/scripts/make-icons.js)

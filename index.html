@@ -83,7 +83,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !win
 
 ArcadeLauncher.start({ games: GAMES, open: openGame, close: closeGame, frame });
 Visitor.start();   // visitor number in the corner, stats for the admin page
-FpsCounter.start();   // frame rate in the top-right corner, computers only
+FpsCounter.start(frame);   // frame rate in the top-right corner, computers only; F3 shows or hides it
 </script>
 </body>
 </html>
