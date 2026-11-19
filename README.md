@@ -32,6 +32,7 @@ Open `index.html` in a modern browser (Chrome, Edge, Firefox or Safari). After a
 | `←` `→` `↑` `↓` then `Enter` (or `Space`) | Pick a card with the keyboard |
 | `1`–`6` | Open a game directly |
 | `F3` | Show or hide the FPS counter (computers only, also works inside games) |
+| The gear button top left | Settings: FPS counter, and uncapped frame rate (computers only) |
 | `Esc` on a game's main menu, or the ← button top left | Back to the arcade |
 
 Every game also works on its own: open its `index.html` inside `games/` directly.
@@ -40,6 +41,13 @@ On a computer, the frame rate shows faintly in the top-right corner (`60 FPS`), 
 
 The frame rate can't go above the screen's refresh rate: browsers draw one frame per screen refresh. So `60 FPS` on a fast graphics card means the screen is running at 60 Hz. If the monitor can do more (144 Hz, say), set it in Windows under **Settings → System → Display → Advanced display → Choose a refresh rate**, and make sure the browser has graphics acceleration on (Chrome and Edge: **Settings → System → Use graphics acceleration when available**). Pulse Runner and Only Up move smoothly at any refresh rate (see [Smooth motion](#smooth-motion)).
 
+**Settings** (the gear button at the top left of the arcade, computers only) has the FPS counter and the **frame rate**:
+
+- **Screen** (the default): games draw once per screen refresh, the normal way for a browser.
+- **Uncapped**: games draw as many frames as the computer can, often hundreds or thousands a second. The counter shows those frames. The screen still only shows its refresh rate, but each picture it shows is the newest one drawn, so what you see is up to one frame fresher. It keeps one CPU core busy while a game runs, so laptops get warmer and use more battery. It pauses like normal when the tab is hidden.
+
+The choice is remembered (`localStorage` key `ult:uncap`) and starts with the next game you open. How it works: when a game page loads, `fps.js` replaces that page's `requestAnimationFrame` with one that runs the next frame straight away (through a `MessageChannel` message, which has no minimum delay) instead of waiting for the screen. Every game times its movement by the clock, not by frames, so nothing speeds up. Uncapped also needs nothing from the games: a new game gets it for free, as long as it moves by the time between frames.
+
 ## File layout
 
 ```
@@ -47,7 +55,7 @@ The frame rate can't go above the screen's refresh rate: browsers draw one frame
 ├── index.html                 The arcade page: GAMES list, opens games in an <iframe>
 ├── launcher.js                The arcade itself (ArcadeLauncher): loading screen, game cards, back button
 ├── visitor.js                 Visitor number in the corner, stats for /admin
-├── fps.js                     FPS counter in the top-right corner (computers only), F3 toggles it
+├── fps.js                     Computers only: FPS counter top right (F3 toggles it), settings (uncapped frame rate)
 ├── manifest.webmanifest       Lets phones add the games to the home screen
 ├── sw.js                      Offline support for the home-screen version
 ├── icons/                     App icons (made by app/scripts/make-icons.js)
